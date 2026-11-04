@@ -3,6 +3,8 @@ Unreleased
 
  * Added multi-GPU support: start one instance per GPU with `--gpu-index N` or the `GWE_GPU_INDEX` environment
    variable (each GPU has its own profiles and settings, GPU 0 keeps the existing ones)
+ * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU
+ * Fixed the historical data graphs not being reset correctly when the GPU changes
  * The power limit is now applied to the selected GPU (it was always applied to GPU 0) and the GPU is targeted by UUID
  * On exit only the fan control of the managed GPU is reset to auto
 

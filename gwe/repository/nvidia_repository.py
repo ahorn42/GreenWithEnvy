@@ -17,7 +17,7 @@
 import logging
 import threading
 import time
-from typing import List, Dict, Optional, Tuple, Callable, Any
+from typing import List, Dict, Optional, Tuple, Callable, Any, Set
 
 from Xlib import display
 from Xlib.ext.nvcontrol import Gpu, Cooler
@@ -49,6 +49,7 @@ class NvidiaRepository:
         self._lock = threading.RLock()
         self._gpu_count = 0
         self._gpu_uuids: Dict[int, str] = {}
+        self._manual_fan_gpus: Set[int] = set()
         self._gpu_setting_cache: List[Dict[str, str]] = []
         self._ctrl_display: Optional[str] = None
 
@@ -241,12 +242,18 @@ class NvidiaRepository:
         _LOG.info(f"Exit code: {result[0]}. {result[1]}\n{result[1]}")
         return result[0] == 0
 
-    def set_fan_to_auto(self, gpu_index: int) -> None:
-        # Only touch the GPU controlled by this instance: other GPUs may be managed by other GWE instances
-        if gpu_index < self._gpu_count:
-            self.set_fan_speed(gpu_index, manual_control=False)
+    def reset_fans_to_auto(self, gpu_index: int) -> None:
+        # Only touch the GPUs controlled by this instance (the one it was started with and the ones it put in manual
+        # mode): other GPUs may be managed by other GWE instances
+        for index in sorted({gpu_index} | self._manual_fan_gpus):
+            if index < self._gpu_count:
+                self.set_fan_speed(index, manual_control=False)
 
     def set_fan_speed(self, gpu_index: int, speed: int = 100, manual_control: bool = False) -> bool:
+        if manual_control:
+            self._manual_fan_gpus.add(gpu_index)
+        else:
+            self._manual_fan_gpus.discard(gpu_index)
         xlib_display = display.Display(self._ctrl_display)
         gpu = Gpu(gpu_index)
         fan_indexes = xlib_display.nvcontrol_get_coolers_used_by_gpu(gpu)

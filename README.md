@@ -179,11 +179,17 @@ gwe --gpu-index 1
 GWE_GPU_INDEX=1 gwe
 ```
 
+If your system has more than one GPU, the GPU name at the top of the main window is a drop-down list: pick another
+entry to control that GPU in the same window. The fan control of the GPU you leave is handed back to the driver and the
+fan/overclock profiles are not applied to the new GPU until you press *Apply* (the selected profiles are kept).
+Overclock offsets that were already applied to the GPU you leave stay active in the driver.
+
 The index is the one of the NV-CONTROL extension (the same order used by `nvidia-settings`: `[gpu:N]`). The log
 (`gwe --debug`) lists the index, name and UUID of every detected GPU, and an unknown index shows the list of the
 available GPUs.
 
-Every GPU has its own instance, window, fan/overclock profiles and settings: GPU 0 keeps using the existing
+If you prefer one window per GPU, run one instance each (a second start for the same GPU just shows the existing
+window). Every instance has its own window, fan/overclock profiles and settings: GPU 0 keeps using the existing
 `~/.config/gwe/gwe.db`, the other GPUs use `~/.config/gwe/gwe-gpuN.db`. When GWE is closed it only resets the fan
 control of the GPU it manages, so the other instances are not affected.
 

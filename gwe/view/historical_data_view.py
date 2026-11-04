@@ -88,6 +88,10 @@ class HistoricalDataView(HistoricalDataViewInterface):
                 graph_views.set_model(graph_model)
                 graph_views.add_renderer(graph_renderer)
 
+                # reset_graphs() calls this again: a Gtk.Frame can only hold one child, so drop the old graph first
+                old_graph_views = self._graph_container.get_child()
+                if old_graph_views is not None:
+                    self._graph_container.remove(old_graph_views)
                 self._graph_container.add(graph_views)
 
                 graph_model_iter = graph_model.push(GLib.get_monotonic_time())

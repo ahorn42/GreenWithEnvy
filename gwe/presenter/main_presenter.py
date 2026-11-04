@@ -66,6 +66,9 @@ class MainViewInterface:
     def refresh_status(self, status: Optional[Status], gpu_index: int) -> None:
         raise NotImplementedError()
 
+    def reset_gpu_view(self) -> None:
+        raise NotImplementedError()
+
     def refresh_fan_profile_combobox(self, data: List[Tuple[int, str]], active: Optional[int]) -> None:
         raise NotImplementedError()
 
@@ -214,6 +217,35 @@ class MainPresenter:
                 operators.observe_on(GtkScheduler(GLib)),
             ).subscribe(on_next=self._handle_set_overclock_result,
                         on_error=self._handle_set_overclock_result))
+
+    def on_gpu_selected(self, widget: Any, *_: Any) -> None:
+        active = widget.get_active()
+        # -1 and the current index are emitted when the view fills the combobox
+        if active < 0 or active == self._gpu_index or self._latest_status is None \
+                or active >= len(self._latest_status.gpu_status_list):
+            return
+        self._switch_gpu(active)
+
+    def _switch_gpu(self, gpu_index: int) -> None:
+        assert self._latest_status is not None
+        old_gpu_index = self._gpu_index
+        _LOG.info(f"Switching from GPU {old_gpu_index} to GPU {gpu_index}")
+        # Never leave the previous GPU in manual fan mode: nothing would update its duty anymore
+        if self._fan_profile_applied is not None and self._fan_profile_applied.type != FanProfileType.AUTO.value:
+            self._set_fan_speed(old_gpu_index, manual_control=False)
+        self._gpu_index = gpu_index
+        # The profiles are applied per GPU: the new one starts as it is. The selected profiles are kept so they can be
+        # applied to the new GPU with a click.
+        self._fan_profile_applied = None
+        self._overclock_profile_applied = None
+        self._previous_status = None
+        self._refresh_fan_profile_ui(
+            profile_id=self._fan_profile_selected.id if self._fan_profile_selected else None)
+        self._refresh_overclock_profile_ui(
+            profile_id=self._overclock_profile_selected.id if self._overclock_profile_selected else None)
+        self.main_view.reset_gpu_view()
+        self.main_view.refresh_status(self._latest_status, gpu_index)
+        self._historical_data_presenter.add_status(self._latest_status, gpu_index)
 
     def on_menu_settings_clicked(self, *_: Any) -> None:
         self._preferences_presenter.show()

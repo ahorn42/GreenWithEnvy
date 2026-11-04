@@ -93,7 +93,7 @@ class MainView(MainViewInterface):
         self._app_version.set_label(f"{APP_NAME} v{APP_VERSION}")
         self._about_dialog: Gtk.AboutDialog = self._builder.get_object("about_dialog")
         self._init_about_dialog()
-        self._info_name_entry: Gtk.Entry = self._builder.get_object('info_name_entry')
+        self._info_name_combobox: Gtk.ComboBoxText = self._builder.get_object('info_name_combobox')
         self._info_vbios_entry: Gtk.Entry = self._builder.get_object('info_vbios_entry')
         self._info_driver_entry: Gtk.Entry = self._builder.get_object('info_driver_entry')
         self._info_pcie_entry: Gtk.Entry = self._builder.get_object('info_pcie_entry')
@@ -218,6 +218,21 @@ class MainView(MainViewInterface):
         dialog.run()
         dialog.destroy()
 
+    def reset_gpu_view(self) -> None:
+        """Forces the next refresh_status() to reload the data that doesn't change between two refreshes of the same
+        GPU (name, limits, available controls...). Needed when the selected GPU changes."""
+        self._first_refresh = True
+
+    def _refresh_gpu_combobox(self, status: Status, gpu_index: int) -> None:
+        # remove_all() and set_active() emit "changed", the presenter ignores it as the index is already the current one
+        self._info_name_combobox.remove_all()
+        for gpu_status in status.gpu_status_list:
+            name = gpu_status.info.name or 'Unknown GPU'
+            self._info_name_combobox.append_text(
+                f"{gpu_status.index}: {name}" if len(status.gpu_status_list) > 1 else name)
+        self._info_name_combobox.set_active(gpu_index)
+        self._info_name_combobox.set_sensitive(len(status.gpu_status_list) > 1)
+
     def refresh_status(self, status: Optional[Status], gpu_index: int) -> None:
         _LOG.debug('view status')
         if status:
@@ -227,7 +242,7 @@ class MainView(MainViewInterface):
                 if len(status.gpu_status_list) > 1:
                     # Several GPUs (and possibly several GWE windows): make clear which one this window controls
                     self._window.set_title(f"{APP_NAME} - GPU {gpu_index}: {gpu_status.info.name}")
-                self._set_entry_text(self._info_name_entry, gpu_status.info.name)
+                self._refresh_gpu_combobox(status, gpu_index)
                 self._set_entry_text(self._info_vbios_entry, gpu_status.info.vbios)
                 self._set_entry_text(self._info_driver_entry, gpu_status.info.driver)
                 self._set_entry_text(self._info_cuda_entry, "{}", gpu_status.info.cuda_cores)
