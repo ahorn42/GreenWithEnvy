@@ -52,6 +52,7 @@ from gwe.presenter.edit_overclock_profile_presenter import EditOverclockProfileP
 from gwe.presenter.historical_data_presenter import HistoricalDataPresenter
 from gwe.presenter.preferences_presenter import PreferencesPresenter
 from gwe.util.deployment import is_flatpak
+from gwe.util.gpu_selection import get_gpu_index, GPU_INDEX_ENV_VAR
 from gwe.util.view import show_notification, open_uri, get_default_application
 
 _LOG = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class MainViewInterface:
     def show_main_infobar_message(self, message: str, markup: bool = False) -> None:
         raise NotImplementedError()
 
-    def get_power_limit(self) -> Tuple[int, int]:
+    def get_power_limit(self) -> int:
         raise NotImplementedError()
 
     def show_about_dialog(self) -> None:
@@ -148,7 +149,8 @@ class MainPresenter:
         self._overclock_profile_applied: Optional[OverclockProfile] = None
         self._latest_status: Optional[Status] = None
         self._previous_status: Optional[Status] = None
-        self._gpu_index: int = 0
+        self._gpu_index: int = get_gpu_index()
+        self._invalid_gpu_index_reported = False
 
     def on_start(self) -> None:
         self._refresh_fan_profile_ui(True)
@@ -167,7 +169,8 @@ class MainPresenter:
         self._historical_data_presenter.show()
 
     def on_power_limit_apply_button_clicked(self, *_: Any) -> None:
-        self._composite_disposable.add(self._set_power_limit_interactor.execute(*self.main_view.get_power_limit()).pipe(
+        self._composite_disposable.add(self._set_power_limit_interactor.execute(
+            self._gpu_index, self.main_view.get_power_limit()).pipe(
             operators.subscribe_on(self._scheduler),
             operators.observe_on(GtkScheduler(GLib)),
         ).subscribe(on_next=self._handle_set_power_limit_result,
@@ -320,6 +323,8 @@ class MainPresenter:
 
     def _on_status_updated(self, status: Optional[Status]) -> None:
         if status is not None:
+            if not self._is_gpu_index_valid(status):
+                return
             was_latest_status_none = self._latest_status is None
             self._previous_status = self._latest_status
             self._latest_status = status
@@ -330,6 +335,24 @@ class MainPresenter:
             self._historical_data_presenter.add_status(status, self._gpu_index)
         else:
             self._set_fan_speed(self._gpu_index, manual_control=False)
+
+    def _is_gpu_index_valid(self, status: Status) -> bool:
+        if self._latest_status is None and not self._invalid_gpu_index_reported:
+            for gpu_status in status.gpu_status_list:
+                _LOG.info(f"GPU {gpu_status.index}: {gpu_status.info.name} ({gpu_status.info.uuid})")
+        if self._gpu_index < len(status.gpu_status_list):
+            return True
+        if not self._invalid_gpu_index_reported:
+            self._invalid_gpu_index_reported = True
+            available = "\n".join(f"  {s.index}: {s.info.name}" for s in status.gpu_status_list)
+            _LOG.error(f"GPU index {self._gpu_index} not found")
+            self.main_view.show_error_message_dialog(
+                "GPU not found",
+                f"GPU index {self._gpu_index} does not exist.\n\nAvailable GPUs:\n{available}\n\n"
+                f"Use the --gpu-index option or the {GPU_INDEX_ENV_VAR} environment variable to select one."
+            )
+            get_default_application().quit()
+        return False
 
     def _update_fan(self) -> None:
         fan = self._latest_status.gpu_status_list[self._gpu_index].fan

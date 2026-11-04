@@ -26,6 +26,7 @@ from rx.subject import Subject
 
 from gwe.conf import APP_PACKAGE_NAME, APP_MAIN_UI_NAME, APP_DB_NAME, APP_EDIT_FAN_PROFILE_UI_NAME, \
     APP_PREFERENCES_UI_NAME, APP_HISTORICAL_DATA_UI_NAME, APP_EDIT_OC_PROFILE_UI_NAME
+from gwe.util.gpu_selection import get_database_name, get_gpu_index
 from gwe.util.path import get_config_path
 
 _LOG = logging.getLogger(__name__)
@@ -100,7 +101,9 @@ class ProviderModule(Module):
     @provider
     def provide_database(self) -> SqliteDatabase:
         _LOG.debug("provide SqliteDatabase")
-        database = SqliteDatabase(get_config_path(APP_DB_NAME))
+        database_path = get_config_path(get_database_name(APP_DB_NAME, get_gpu_index()))
+        _LOG.info(f"Using database {database_path}")
+        database = SqliteDatabase(database_path)
         database.connect()
         return database
 

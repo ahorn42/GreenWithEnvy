@@ -29,7 +29,12 @@ from peewee import SqliteDatabase
 from gi.repository import GLib
 from rx.disposable import CompositeDisposable
 
-from gwe.conf import APP_PACKAGE_NAME
+from gwe.util.gpu_selection import init_gpu_index, get_gpu_index
+
+# The selected GPU decides which database is used, and the models open it while they are imported: resolve it first
+init_gpu_index()
+
+from gwe.conf import APP_PACKAGE_NAME  # pylint: disable=wrong-import-position
 from gwe.model.current_fan_profile import CurrentFanProfile
 from gwe.model.current_overclock_profile import CurrentOverclockProfile
 from gwe.model.fan_profile import FanProfile
@@ -62,7 +67,7 @@ def _cleanup() -> None:
         composite_disposable = INJECTOR.get(CompositeDisposable)
         composite_disposable.dispose()
         nvidia_repository = INJECTOR.get(NvidiaRepository)
-        nvidia_repository.set_all_gpus_fan_to_auto()
+        nvidia_repository.set_fan_to_auto(get_gpu_index())
         database = INJECTOR.get(SqliteDatabase)
         database.close()
         # futures.thread._threads_queues.clear()

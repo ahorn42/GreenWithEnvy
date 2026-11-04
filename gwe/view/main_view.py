@@ -37,6 +37,7 @@ except (ImportError, ValueError):
     AppIndicator3 = None
 from gwe.di import MainBuilder
 from gwe.view.edit_fan_profile_view import EditFanProfileView
+from gwe.util.gpu_selection import get_application_id, get_gpu_index
 from gwe.util.view import hide_on_delete, init_plot_chart, get_fan_profile_data, is_dazzle_version_supported
 from gwe.view.edit_overclock_profile_view import EditOverclockProfileView
 from gwe.view.historical_data_view import HistoricalDataView
@@ -177,7 +178,7 @@ class MainView(MainViewInterface):
         if AppIndicator3:
             # Setting icon name in new() as '', because new() wants an icon path
             self._app_indicator = AppIndicator3.Indicator \
-                .new(APP_ID, '', AppIndicator3.IndicatorCategory.HARDWARE)
+                .new(get_application_id(APP_ID, get_gpu_index()), '', AppIndicator3.IndicatorCategory.HARDWARE)
             # Set the actual icon by name. If the App is not installed system-wide, the icon won't show up,
             # otherwise it will show up correctly. The set_icon_full() function needs a description for accessibility
             # purposes. I gave it the APP_NAME (should be 'gwe', maybe change it to 'GreenWithEnvy' in the future)
@@ -201,8 +202,8 @@ class MainView(MainViewInterface):
         else:
             self._window.show()
 
-    def get_power_limit(self) -> Tuple[int, int]:
-        return 0, self._power_limit_adjustment.get_value()
+    def get_power_limit(self) -> int:
+        return int(self._power_limit_adjustment.get_value())
 
     def set_statusbar_text(self, text: str) -> None:
         self._statusbar.remove_all(self._context)
@@ -223,6 +224,9 @@ class MainView(MainViewInterface):
             gpu_status = status.gpu_status_list[gpu_index]
             if self._first_refresh:
                 self._first_refresh = False
+                if len(status.gpu_status_list) > 1:
+                    # Several GPUs (and possibly several GWE windows): make clear which one this window controls
+                    self._window.set_title(f"{APP_NAME} - GPU {gpu_index}: {gpu_status.info.name}")
                 self._set_entry_text(self._info_name_entry, gpu_status.info.name)
                 self._set_entry_text(self._info_vbios_entry, gpu_status.info.vbios)
                 self._set_entry_text(self._info_driver_entry, gpu_status.info.driver)

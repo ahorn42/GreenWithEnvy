@@ -48,6 +48,7 @@ class NvidiaRepository:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._gpu_count = 0
+        self._gpu_uuids: Dict[int, str] = {}
         self._gpu_setting_cache: List[Dict[str, str]] = []
         self._ctrl_display: Optional[str] = None
 
@@ -96,6 +97,7 @@ class NvidiaRepository:
             for gpu_index in range(self._gpu_count):
                 gpu = Gpu(gpu_index)
                 uuid = xlib_display.nvcontrol_get_gpu_uuid(gpu)
+                self._gpu_uuids[gpu_index] = uuid
                 handle = py3nvml.nvmlDeviceGetHandleByUUID(uuid.encode('utf-8'))
                 memory_total = None
                 memory_used = None
@@ -226,20 +228,22 @@ class NvidiaRepository:
         xlib_display.close()
         return gpu_result is True and mem_result is True
 
-    @staticmethod
-    def set_power_limit(gpu_index: int, limit: int) -> bool:
+    def set_power_limit(self, gpu_index: int, limit: int) -> bool:
+        # NV-CONTROL and nvidia-smi can enumerate GPUs in a different order, so target the GPU by UUID (accepted by
+        # nvidia-smi -i) whenever it is known and fall back to the index otherwise.
         cmd = ['pkexec',
                _NVIDIA_SMI_BINARY_NAME,
                '-i',
-               str(gpu_index),
+               self._gpu_uuids.get(gpu_index, str(gpu_index)),
                '-pl',
                str(limit)]
         result = run_and_get_stdout(cmd)
         _LOG.info(f"Exit code: {result[0]}. {result[1]}\n{result[1]}")
         return result[0] == 0
 
-    def set_all_gpus_fan_to_auto(self) -> None:
-        for gpu_index in range(self._gpu_count):
+    def set_fan_to_auto(self, gpu_index: int) -> None:
+        # Only touch the GPU controlled by this instance: other GPUs may be managed by other GWE instances
+        if gpu_index < self._gpu_count:
             self.set_fan_speed(gpu_index, manual_control=False)
 
     def set_fan_speed(self, gpu_index: int, speed: int = 100, manual_control: bool = False) -> bool:

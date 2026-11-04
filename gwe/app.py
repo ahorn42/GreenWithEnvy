@@ -32,6 +32,7 @@ from gwe.presenter.main_presenter import MainPresenter
 from gwe.repository.nvidia_repository import NvidiaRepository
 from gwe.util.deployment import is_flatpak
 from gwe.util.desktop_entry import set_autostart_entry, add_application_entry
+from gwe.util.gpu_selection import get_application_id, get_gpu_index, GPU_INDEX_CLI_OPTION, GPU_INDEX_ENV_VAR
 from gwe.util.log import LOG_DEBUG_FORMAT
 from gwe.util.view import build_glib_option
 from gwe.view.main_view import MainView
@@ -51,7 +52,7 @@ class Application(Gtk.Application):
                  **kwargs: Any) -> None:
         _LOG.debug("init Application")
         GLib.set_application_name(_(APP_NAME))
-        super().__init__(*args, application_id=APP_ID,
+        super().__init__(*args, application_id=get_application_id(APP_ID, get_gpu_index()),
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
                          **kwargs)
         if FanProfile.select().count() == 0:
@@ -121,6 +122,10 @@ class Application(Gtk.Application):
             _LOG.debug(f"Option {_Options.CTRL_DISPLAY.value} selected: {param}")
             self._nvidia_repository.set_ctrl_display(param)
 
+        if _Options.GPU_INDEX.value in options:
+            # Already resolved in __main__ (it is needed before this Application exists), just log it here
+            _LOG.debug(f"Option {_Options.GPU_INDEX.value} selected: {options[_Options.GPU_INDEX.value]}")
+
         if start_app:
             self.activate()
         return exit_value
@@ -139,6 +144,12 @@ class Application(Gtk.Application):
                               arg=GLib.OptionArg.STRING,
                               description="Specify the NV-CONTROL display (if you use Bumblebee, set this to \":8\" "
                                           "and start GWE with optirun)"),
+            build_glib_option(_Options.GPU_INDEX.value,
+                              arg=GLib.OptionArg.STRING,
+                              arg_description="INDEX",
+                              description="Index of the GPU to control (default: 0, can also be set with the "
+                                          f"{GPU_INDEX_ENV_VAR} environment variable). Start one instance of GWE "
+                                          "for each GPU you want to manage"),
         ]
         if not is_flatpak():
             options.append(build_glib_option(_Options.AUTOSTART_ON.value,
@@ -153,5 +164,6 @@ class _Options(Enum):
     VERSION = 'version'
     HIDE_WINDOW = 'hide-window'
     CTRL_DISPLAY = 'ctrl-display'
+    GPU_INDEX = GPU_INDEX_CLI_OPTION
     AUTOSTART_ON = 'autostart-on'
     AUTOSTART_OFF = 'autostart-off'

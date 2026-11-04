@@ -166,8 +166,26 @@ If you don't want to create this custom rule you can run gwe as root
   |--debug                    |Show debug messages                        |    x   |    x    |
   |--hide-window              |Start with the main window hidden          |    x   |    x    |
   |--ctrl-display DISPLAY     |Specify the NV-CONTROL display             |    x   |    x    |
+  |--gpu-index INDEX          |Index of the GPU to control (default: 0)   |    x   |    x    |
   |--autostart-on             |Enable automatic start of the app on login |    x   |         |
   |--autostart-off            |Disable automatic start of the app on login|    x   |         |
+
+## 🖥️🖥️ Multiple GPUs
+GWE controls one GPU per running instance. To manage several GPUs, start one instance for each of them and select
+the GPU with the `--gpu-index` option or the `GWE_GPU_INDEX` environment variable (the option wins if both are set):
+
+```bash
+gwe --gpu-index 1
+GWE_GPU_INDEX=1 gwe
+```
+
+The index is the one of the NV-CONTROL extension (the same order used by `nvidia-settings`: `[gpu:N]`). The log
+(`gwe --debug`) lists the index, name and UUID of every detected GPU, and an unknown index shows the list of the
+available GPUs.
+
+Every GPU has its own instance, window, fan/overclock profiles and settings: GPU 0 keeps using the existing
+`~/.config/gwe/gwe.db`, the other GPUs use `~/.config/gwe/gwe-gpuN.db`. When GWE is closed it only resets the fan
+control of the GPU it manages, so the other instances are not affected.
 
 ## 🖥️ Build, install and run with Flatpak
 If you don't have Flatpak installed you can find step by step instructions [here](https://flatpak.org/setup/).
