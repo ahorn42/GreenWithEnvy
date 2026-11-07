@@ -58,64 +58,51 @@ GWE avaliable in official Fedora [repos](https://src.fedoraproject.org/rpms/gwe)
 
 For older Fedora releases you can use [COPR package](https://copr.fedorainfracloud.org/coprs/atim/gwe/): `sudo dnf copr enable atim/gwe -y && sudo dnf install gwe`
 
-### Install from source code
-#### Build time dependencies
-| Distro                | pkg-config         | Python 3.6+   | gobject-introspection       | meson | ninja-build | appstream-util |
-| --------------------- | ------------------ | ------------- | --------------------------- | ----- | ----------- | -------------- |
-| Arch Linux            | pkg-config         | python        | gobject-introspection       | meson | ninja       | appstream-glib |
-| Fedora                | pkgconf-pkg-config | python3-devel | gobject-introspection-devel | meson | ninja-build | appstream-util |
-| OpenSUSE              | pkgconf-pkg-config | python3-devel | gobject-introspection-devel | meson | ninja-build | appstream-glib |
-| Ubuntu                | pkg-config         | python3-dev   | libgirepository1.0-dev      | meson | ninja-build | appstream-util |
+### Build GWE from source
+`./build.sh` does everything: it creates a Python virtualenv in `build/venv`, installs the Python dependencies and the
+build tools (meson, ninja) listed in [requirements.txt](requirements.txt) into it, builds GWE and creates the launcher
+`build/gwe`. Nothing is installed system-wide, to remove everything just delete the `build` folder.
 
+Only a few system packages are needed, because the virtualenv can't provide a compiler, the development files of
+Gtk/cairo (PyGObject and pycairo are compiled when installed) and the Gtk typelibs. On Debian/Ubuntu:
 
-#### Run time dependencies
-| Distro                | Python 3.6+ | pip         | gobject-introspection       | libappindicator          | gnome-shell-extension-appindicator | libdazzle |
-| --------------------- | ----------- | ----------- | --------------------------- | ------------------------ | ---------------------------------- | --------- |
-| Arch Linux            | python      | python-pip  | gobject-introspection       | libappindicator3         | gnome-shell-extension-appindicator | libdazzle |
-| Fedora                | python3     | python3-pip | gobject-introspection-devel | libappindicator-gtk3     | gnome-shell-extension-appindicator | libdazzle |
-| OpenSUSE              | python3     | python3-pip | gobject-introspection       | libappindicator3-1       | gnome-shell-extension-appindicator | typelib-1_0-libdazzle-1_0 |
-| Ubuntu                | python3     | python3-pip | libgirepository1.0-dev      | gir1.2-appindicator3-0.1 | gnome-shell-extension-appindicator | libdazzle |
-
-plus all the Python dependencies listed in [requirements.txt](requirements.txt)
-
-#### Clone project and install
-If you have not installed GWE yet:
 ```bash
-git clone --recurse-submodules -j4 https://gitlab.com/leinardi/gwe.git
+# Build time: the compiler and the development files needed to compile PyGObject and pycairo
+sudo apt install build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev
+# Run time: the Gtk, libdazzle (historical data graphs) and libnotify typelibs
+sudo apt install gir1.2-gtk-3.0 gir1.2-dazzle-1.0 gir1.2-notify-0.7
+# Optional: tray icon (GNOME also needs the AppIndicator extension, which is not needed to use GWE)
+sudo apt install gir1.2-appindicator3-0.1
+```
+
+| Distro                | Build time                                                                                      | Run time (typelibs)                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Debian/Ubuntu         | build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev        | gir1.2-gtk-3.0 gir1.2-dazzle-1.0 gir1.2-notify-0.7                 |
+| Fedora                | gcc pkgconf-pkg-config python3-devel cairo-devel gobject-introspection-devel cairo-gobject-devel | gtk3 libdazzle libnotify                                           |
+| Arch Linux            | base-devel python cairo gobject-introspection                                                   | gtk3 libdazzle libnotify                                           |
+
+The package names of the distros other than Debian/Ubuntu are not tested.
+
+```bash
+git clone https://gitlab.com/leinardi/gwe.git
 cd gwe
-git checkout release
-sudo -H pip3 install -r requirements.txt
-meson . build --prefix /usr
-ninja -v -C build
-sudo ninja -v -C build install
+./build.sh
+build/gwe
 ```
 
-#### Update old installation
-If you installed GWE from source code previously and you want to update it:
-```bash
-cd gwe
-git fetch
-git checkout release
-git reset --hard origin/release
-git submodule init
-git submodule update
-sudo -H pip3 install -r requirements.txt
-meson . build --prefix /usr
-ninja -v -C build
-sudo ninja -v -C build install
-```
+Running `./build.sh` again updates the build. Set `PYTHON=python3.12 ./build.sh` to use a specific Python for the
+virtualenv (tested with 3.12 and 3.13).
 
-#### Run
-Once installed, to start it you can simply execute on a terminal:
-```bash
-gwe
-```
+If you previously built GWE with `meson . build`, delete the old `build` folder once.
+
+#### Install system-wide
+Not supported by `build.sh`. It builds GWE with the prefix `build/output/install`, so the folder must stay where it is.
 
 #### ⚠ Bumblebee and Optimus
 If you want to use GWE with Bumblebee you need to start it with `optirun` and set the `--ctrl-display` parameter to `:8`:
 
 ```bash
-optirun gwe --ctrl-display ":8"
+optirun build/gwe --ctrl-display ":8"
 ```
 
 ## ℹ️ TODO

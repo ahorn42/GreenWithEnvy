@@ -16,8 +16,8 @@
 # along with gst.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import logging
-from distutils.version import LooseVersion
-from typing import Optional
+import re
+from typing import Optional, Tuple
 
 import requests
 import rx
@@ -41,11 +41,15 @@ class CheckNewVersionInteractor:
         _LOG.debug("CheckNewVersionInteractor.execute()")
         return rx.defer(lambda _: rx.just(self._check_new_version()))
 
-    def _check_new_version(self) -> Optional[LooseVersion]:
+    def _check_new_version(self) -> Optional[str]:
         req = requests.get(self.URL_PATTERN.format(package=APP_ID))
-        version = LooseVersion("0")
+        version = "0"
         if req.status_code == requests.codes.ok:
             j = json.loads(req.text)
-            current_release_version = j.get('currentReleaseVersion', "0.0.0")
-            version = LooseVersion(current_release_version)
-        return version if version > LooseVersion(APP_VERSION) else None
+            version = j.get('currentReleaseVersion', "0.0.0")
+        return version if self._to_tuple(version) > self._to_tuple(APP_VERSION) else None
+
+    @staticmethod
+    def _to_tuple(version: str) -> Tuple[int, ...]:
+        # distutils (and its LooseVersion) has been removed from Python 3.12
+        return tuple(int(number) for number in re.findall(r'\d+', version))

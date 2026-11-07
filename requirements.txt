@@ -1,9 +1,21 @@
-injector==0.19.0
-matplotlib==3.5.1
-peewee==3.14.10
-py3nvml==0.2.7
-PyGObject==3.42.0
-python-xlib==0.31
-pyxdg==0.27
-requests==2.27.1
-Rx==3.2.0
+# Python dependencies of GWE and its build tools. build.sh installs them into build/venv.
+#
+# The versions are lower bounds plus an upper bound where a newer major release is known to break GWE.
+# PyGObject and pycairo are compiled while installing: see the "Build GWE from source" section of the README for the
+# system packages (compiler, Gtk/cairo development files and typelibs) they need.
+
+# Application
+PyGObject>=3.42,<3.51  # 3.50 is the last release that builds against girepository-1.0
+pycairo>=1.20
+injector>=0.19,<1
+matplotlib>=3.5
+peewee>=3.14
+py3nvml>=0.2.7
+python-xlib>=0.31
+pyxdg>=0.27
+requests>=2.27
+Rx>=3.2,<4  # Rx 4 was renamed to reactivex and has a different API
+
+# Build tools
+meson>=0.60,<2
+ninja>=1.10

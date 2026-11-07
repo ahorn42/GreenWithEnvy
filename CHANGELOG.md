@@ -5,6 +5,10 @@ Unreleased
    variable (each GPU has its own profiles and settings, GPU 0 keeps the existing ones)
  * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU
  * Fixed the historical data graphs not being reset correctly when the GPU changes
+ * `./build.sh` now builds GWE in a virtualenv (`build/venv`) with all the Python dependencies from `requirements.txt` and
+   creates the launcher `build/gwe`; no Python package has to be installed system-wide anymore
+ * Fixed the start on Python 3.12, where `distutils` doesn't exist anymore
+ * Removed the reference to the `python-xlib` submodule from `meson.build` (python-xlib comes from `requirements.txt`)
  * The power limit is now applied to the selected GPU (it was always applied to GPU 0) and the GPU is targeted by UUID
  * On exit only the fan control of the managed GPU is reset to auto
 
