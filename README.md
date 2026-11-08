@@ -169,6 +169,11 @@ Reading the status takes some time (all the GPUs are queried through NVML and NV
 it takes ("Fetching new data took ... ms"): if it takes longer than the interval, the refreshes that would overlap are
 skipped, so the real rate is lower than the selected one and GWE can't get stuck. Short intervals use more CPU.
 
+NVML is initialized once and the connection to the X server is kept open between two refreshes, they are closed and
+opened again only after an error (e.g. the X server was restarted or the driver was reloaded) and when GWE quits. If you
+suspect that this causes problems, start GWE with `GWE_KEEP_CONNECTIONS=0` to initialize NVML and connect to X at every
+refresh, as older versions did (`gwe --debug` tells which mode is in use and how long the refreshes take).
+
 ## 🪟 Window style (GNOME, KDE and other desktops)
 On GNOME (and Budgie/Pantheon) GWE uses the GNOME style header bar. On all the other desktops, e.g. KDE Plasma, it uses
 the classic title bar drawn by the window manager and moves the buttons of the header bar to a toolbar below it.

@@ -1,6 +1,8 @@
 Unreleased
 ==========
 
+ * NVML is initialized once and the connection to the X server is kept open between the refreshes instead of doing both
+   at every refresh (they are reopened after an error). `GWE_KEEP_CONNECTIONS=0` restores the old behavior
  * The refresh interval (default 3 s) can be changed from a drop-down list in the main window (0.5, 1, 3 or 5 s) and
    from the settings (0.5 to 10 s, in steps of 0.5 s), and it is applied immediately. A refresh that is still running
    when the next one is due is not started a second time, so the reads can't pile up when they are slower than the

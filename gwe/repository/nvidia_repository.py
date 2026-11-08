@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with gst.  If not, see <http://www.gnu.org/licenses/>.
 import logging
+import os
 import threading
 import time
 from typing import List, Dict, Optional, Tuple, Callable, Any, Set
@@ -40,6 +41,8 @@ from gwe.util.concurrency import synchronized_with_attr
 _LOG = logging.getLogger(__name__)
 _NVIDIA_SMI_BINARY_NAME = 'nvidia-smi'
 _NVIDIA_SETTINGS_BINARY_NAME = 'nvidia-settings'
+# GWE_KEEP_CONNECTIONS=0 initializes NVML and opens the connection to the X server at every refresh, like it used to
+KEEP_CONNECTIONS_ENV_VAR = 'GWE_KEEP_CONNECTIONS'
 
 
 @singleton
@@ -52,6 +55,13 @@ class NvidiaRepository:
         self._manual_fan_gpus: Set[int] = set()
         self._gpu_setting_cache: List[Dict[str, str]] = []
         self._ctrl_display: Optional[str] = None
+        self._keep_connections = os.environ.get(KEEP_CONNECTIONS_ENV_VAR, '1').strip().lower() \
+            not in ('0', 'false', 'no', 'off')
+        # NVML is initialized once and the connection to the X server is kept open between the refreshes (see
+        # _connect()), initializing NVML and connecting to X for every refresh is a waste when it is done every 0.5 s
+        self._xlib_display: Optional[display.Display] = None
+        self._nvml_initialized = False
+        self._gpu_handles: Dict[str, Any] = {}  # By UUID, valid as long as NVML stays initialized
 
     @staticmethod
     def is_nvidia_smi_available() -> bool:
@@ -86,20 +96,55 @@ class NvidiaRepository:
             _LOG.exception("Error while checking NVML Shared Library")
         return False
 
+    def _connect(self) -> display.Display:
+        """Initializes NVML and connects to the X server, if that wasn't done by a previous refresh."""
+        if not self._nvml_initialized:
+            py3nvml.nvmlInit()
+            self._nvml_initialized = True
+        if self._xlib_display is None:
+            self._xlib_display = display.Display(self._ctrl_display)
+        return self._xlib_display
+
+    def _disconnect(self) -> None:
+        """Closes everything that _connect() opened (every step on its own, one failing mustn't skip the others)."""
+        if self._xlib_display is not None:
+            try:
+                self._xlib_display.close()
+            except:
+                _LOG.exception("Error while closing the X display")
+            self._xlib_display = None
+        if self._nvml_initialized:
+            try:
+                py3nvml.nvmlShutdown()
+            except:
+                _LOG.exception("Error while shutting down NVML")
+            self._nvml_initialized = False
+        self._gpu_handles.clear()
+
+    @synchronized_with_attr("_lock")
+    def close(self) -> None:
+        """To be called when the app exits. The next get_status() would connect again."""
+        self._disconnect()
+
+    def _get_gpu_handle(self, uuid: str) -> Any:
+        handle = self._gpu_handles.get(uuid)
+        if handle is None:
+            handle = py3nvml.nvmlDeviceGetHandleByUUID(uuid.encode('utf-8'))
+            self._gpu_handles[uuid] = handle
+        return handle
+
     @synchronized_with_attr("_lock")
     def get_status(self) -> Optional[Status]:
-        xlib_display = None
         try:
             time1 = time.time()
-            py3nvml.nvmlInit()
-            xlib_display = display.Display(self._ctrl_display)
+            xlib_display = self._connect()
             self._gpu_count = xlib_display.nvcontrol_get_gpu_count()
             gpu_status_list: List[GpuStatus] = []
             for gpu_index in range(self._gpu_count):
                 gpu = Gpu(gpu_index)
                 uuid = xlib_display.nvcontrol_get_gpu_uuid(gpu)
                 self._gpu_uuids[gpu_index] = uuid
-                handle = py3nvml.nvmlDeviceGetHandleByUUID(uuid.encode('utf-8'))
+                handle = self._get_gpu_handle(uuid)
                 memory_total = None
                 memory_used = None
                 mem_info = self._nvml_get_val(py3nvml.nvmlDeviceGetMemoryInfo, handle)
@@ -206,17 +251,16 @@ class NvidiaRepository:
                 # )
                 gpu_status_list.append(gpu_status)
             time2 = time.time()
-            _LOG.debug(f'Fetching new data took {((time2 - time1) * 1000.0):.3f} ms')
+            _LOG.debug(f'Fetching new data took {((time2 - time1) * 1000.0):.3f} ms'
+                       f'{" (connections kept open)" if self._keep_connections else ""}')
             return Status(gpu_status_list)
         except:
             _LOG.exception("Error while getting status")
+            # The X server was restarted, the driver was reloaded, a GPU was lost...: start from scratch next time
+            self._disconnect()
         finally:
-            try:
-                if xlib_display:
-                    xlib_display.close()
-                py3nvml.nvmlShutdown()
-            except:
-                _LOG.exception("Error while getting status")
+            if not self._keep_connections:
+                self._disconnect()
         return None
 
     def set_overclock(self, gpu_index: int, perf: int, gpu_offset: int, memory_offset: int) -> bool:
