@@ -6,6 +6,8 @@ Unreleased
  * Added multi-GPU support: start one instance per GPU with `--gpu-index N` or the `GWE_GPU_INDEX` environment
    variable (each GPU has its own profiles and settings, GPU 0 keeps the existing ones)
  * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU
+ * The historical data (last 5 minutes) of all the GPUs is now recorded in the background, so it is already there when the
+   window is opened or the GPU is changed
  * Fixed the historical data graphs not being reset (and not shown at all when the window is open) when the GPU changes
  * `./build.sh` now builds GWE in a virtualenv (`build/venv`) with all the Python dependencies from `requirements.txt` and
    creates the launcher `build/gwe`; no Python package has to be installed system-wide anymore

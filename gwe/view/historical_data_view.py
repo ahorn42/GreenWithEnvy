@@ -16,7 +16,7 @@
 # along with gwe.  If not, see <http://www.gnu.org/licenses/>.
 import time
 import logging
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, List, Optional
 
 from gi.repository import Gtk, GLib, Dazzle, Gdk, GObject
 from gi.repository.GObject import TYPE_DOUBLE
@@ -25,7 +25,7 @@ from injector import singleton, inject
 from gwe.conf import GRAPH_COLOR_HEX
 from gwe.di import HistoricalDataBuilder
 from gwe.presenter.historical_data_presenter import HistoricalDataViewInterface, HistoricalDataPresenter, MONITORING_INTERVAL, \
-    GraphType
+    GraphType, GraphSample, GraphData
 from gwe.util.view import is_dazzle_version_supported, apply_window_style
 from gwe.view.graph_stacked_renderer_view import GraphStackedRenderer
 
@@ -56,7 +56,7 @@ class HistoricalDataView(HistoricalDataViewInterface):
         self._dialog.set_transient_for(window)
 
     # pylint: disable=attribute-defined-outside-init
-    def _init_graphs(self) -> None:
+    def _init_graphs(self, history: Optional[Dict[GraphType, List[GraphSample]]] = None) -> None:
         if is_dazzle_version_supported():
             self._graph_views: Dict[GraphType, Tuple[Gtk.Label, Gtk.Label, Gtk.Label]] = {}
             self._graph_models: Dict[GraphType, Dazzle.GraphModel] = {}
@@ -98,15 +98,31 @@ class HistoricalDataView(HistoricalDataViewInterface):
                 # was called before this new graph existed, so a new widget is not shown until explicitly asked.
                 graph_views.show()
 
-                graph_model_iter = graph_model.push(GLib.get_monotonic_time())
-                graph_model.iter_set(graph_model_iter, 0, 0.0)
+                samples = history.get(graph_type) if history else None
+                if samples:
+                    self._load_history(graph_type, graph_model, samples)
+                else:
+                    graph_model_iter = graph_model.push(GLib.get_monotonic_time())
+                    graph_model.iter_set(graph_model_iter, 0, 0.0)
 
                 self._graph_models[graph_type] = graph_model
 
-    def reset_graphs(self) -> None:
-        self._init_graphs()
+    def _load_history(self, graph_type: GraphType, graph_model: Dazzle.GraphModel, samples: List[GraphSample]) -> None:
+        values = []
+        for timestamp, value, _, _, axis_maximum in samples:
+            graph_model.props.value_max = max(axis_maximum, graph_model.props.value_max)
+            graph_model_iter = graph_model.push(timestamp)
+            graph_model.iter_set(graph_model_iter, 0, value)
+            values.append(value)
+        _, last_value, unit, _, _ = samples[-1]
+        self._graph_views[graph_type][0].set_text(f"{min(values):.0f}")
+        self._graph_views[graph_type][1].set_text(f"{max(values):.0f}")
+        self._graph_views[graph_type][2].set_text(f"{last_value:.0f} {unit}")
 
-    def refresh_graphs(self, data_dict: Dict[GraphType, Tuple[int, float, str, float, float]]) -> None:
+    def reset_graphs(self, history: Dict[GraphType, List[GraphSample]]) -> None:
+        self._init_graphs(history)
+
+    def refresh_graphs(self, data_dict: GraphData) -> None:
         time1 = time.time()
         for graph_type, data_tuple in data_dict.items():
             max_value = self._graph_models[graph_type].props.value_max

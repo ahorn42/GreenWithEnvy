@@ -245,7 +245,7 @@ class MainPresenter:
             profile_id=self._overclock_profile_selected.id if self._overclock_profile_selected else None)
         self.main_view.reset_gpu_view()
         self.main_view.refresh_status(self._latest_status, gpu_index)
-        self._historical_data_presenter.add_status(self._latest_status, gpu_index)
+        self._historical_data_presenter.select_gpu(gpu_index)
 
     def on_menu_settings_clicked(self, *_: Any) -> None:
         self._preferences_presenter.show()

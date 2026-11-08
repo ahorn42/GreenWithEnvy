@@ -15,19 +15,21 @@
 # You should have received a copy of the GNU General Public License
 # along with gwe.  If not, see <http://www.gnu.org/licenses/>.
 import logging
+from collections import deque
 from enum import Enum
-from typing import Any, Tuple, Dict
+from typing import Any, Tuple, Dict, List, Deque
 
 from gi.repository import Gtk, GLib
 from injector import singleton, inject
 
 from gwe.interactor.settings_interactor import SettingsInteractor
+from gwe.model.gpu_status import GpuStatus
 from gwe.model.status import Status
 from gwe.util.view import hide_on_delete, is_dazzle_version_supported
 
 _LOG = logging.getLogger(__name__)
 
-MONITORING_INTERVAL = 300
+MONITORING_INTERVAL = 300  # Seconds of history kept (and shown) for every GPU
 
 
 class GraphType(Enum):
@@ -42,6 +44,11 @@ class GraphType(Enum):
     POWER_DRAW = 9
 
 
+# (monotonic time in microseconds, value, unit, minimum of the axis, maximum of the axis)
+GraphSample = Tuple[int, float, str, float, float]
+GraphData = Dict[GraphType, GraphSample]
+
+
 class HistoricalDataViewInterface:
     def show(self) -> None:
         raise NotImplementedError()
@@ -49,10 +56,10 @@ class HistoricalDataViewInterface:
     def hide(self) -> None:
         raise NotImplementedError()
 
-    def reset_graphs(self) -> None:
+    def reset_graphs(self, history: Dict[GraphType, List[GraphSample]]) -> None:
         raise NotImplementedError()
 
-    def refresh_graphs(self, data: Dict[GraphType, Tuple[int, float, str, float, float]]) -> None:
+    def refresh_graphs(self, data: GraphData) -> None:
         raise NotImplementedError()
 
 
@@ -66,44 +73,71 @@ class HistoricalDataPresenter:
         self._settings_interactor = settings_interactor
         self.view: HistoricalDataViewInterface = HistoricalDataViewInterface()
         self._gpu_index: int = 0
+        # The measurements of every GPU of the last MONITORING_INTERVAL seconds are recorded all the time, also when the
+        # window is closed and for the GPUs that are not selected, so the history is there when it is needed.
+        self._history: Dict[int, Dict[GraphType, Deque[GraphSample]]] = {}
 
     def add_status(self, new_status: Status, gpu_index: int) -> None:
-        if is_dazzle_version_supported():
-            if self._gpu_index != gpu_index:
-                self._gpu_index = gpu_index
-                self.view.reset_graphs()
+        if not is_dazzle_version_supported():
+            return
+        time = GLib.get_monotonic_time()
+        for gpu_status in new_status.gpu_status_list:
+            self._record(gpu_status.index, self._get_graph_data(gpu_status, time), time)
+        if self._gpu_index != gpu_index:
+            self.select_gpu(gpu_index)  # The graphs are loaded from the history, that already contains the new status
+        else:
+            self.view.refresh_graphs(self._get_latest_graph_data(gpu_index))
 
-            data: Dict[GraphType, Tuple[int, float, str, float, float]] = {}
-            time = GLib.get_monotonic_time()
-            gpu_status = new_status.gpu_status_list[gpu_index]
-            gpu_clock = gpu_status.clocks.graphic_current
-            if gpu_clock is not None:
-                data[GraphType.GPU_CLOCK] = (time, float(gpu_clock), 'MHz', 0.0, 2000.0)
-            mem_clock = gpu_status.clocks.memory_current
-            if mem_clock is not None:
-                data[GraphType.MEMORY_CLOCK] = (time, float(mem_clock), 'MHz', 0.0, 7000.0)
-            gpu_temp = gpu_status.temp.gpu
-            if gpu_temp is not None:
-                data[GraphType.GPU_TEMP] = (time, float(gpu_temp), '°C', 0.0, 100.0)
-            if gpu_status.fan.fan_list:
-                fan_duty = gpu_status.fan.fan_list[0][0]
-                data[GraphType.FAN_DUTY] = (time, float(fan_duty), '%', 0.0, 100.0)
-                fan_rpm = gpu_status.fan.fan_list[0][1]
-                data[GraphType.FAN_RPM] = (time, float(fan_rpm), 'rpm', 0.0, 2200.0)
-            gpu_load = gpu_status.info.gpu_usage
-            if gpu_load is not None:
-                data[GraphType.GPU_LOAD] = (time, float(gpu_load), '%', 0.0, 100.0)
-            mem_load = gpu_status.info.memory_usage
-            if mem_load is not None:
-                data[GraphType.MEMORY_LOAD] = (time, float(mem_load), '%', 0.0, 100.0)
-            mem_usage = gpu_status.info.memory_used
-            if mem_usage is not None:
-                data[GraphType.MEMORY_USAGE] = (time, float(mem_usage), 'MiB', 0.0, float(gpu_status.info.memory_total))
-            power_draw = gpu_status.power.draw
-            maximum = gpu_status.power.maximum
-            if power_draw is not None:
-                data[GraphType.POWER_DRAW] = (time, power_draw, 'W', 0.0, 400 if maximum is None else maximum)
-            self.view.refresh_graphs(data)
+    def select_gpu(self, gpu_index: int) -> None:
+        """Shows the history of the given GPU."""
+        self._gpu_index = gpu_index
+        self.view.reset_graphs({graph_type: list(samples)
+                                for graph_type, samples in self._history.get(gpu_index, {}).items()})
+
+    def _record(self, gpu_index: int, data: GraphData, time: int) -> None:
+        history = self._history.setdefault(gpu_index, {})
+        oldest_time = time - MONITORING_INTERVAL * 1000 * 1000
+        for graph_type, sample in data.items():
+            samples = history.setdefault(graph_type, deque())
+            samples.append(sample)
+            while samples[0][0] < oldest_time:
+                samples.popleft()
+
+    def _get_latest_graph_data(self, gpu_index: int) -> GraphData:
+        return {graph_type: samples[-1] for graph_type, samples in self._history.get(gpu_index, {}).items()
+                if samples}
+
+    @staticmethod
+    def _get_graph_data(gpu_status: GpuStatus, time: int) -> GraphData:
+        data: GraphData = {}
+        gpu_clock = gpu_status.clocks.graphic_current
+        if gpu_clock is not None:
+            data[GraphType.GPU_CLOCK] = (time, float(gpu_clock), 'MHz', 0.0, 2000.0)
+        mem_clock = gpu_status.clocks.memory_current
+        if mem_clock is not None:
+            data[GraphType.MEMORY_CLOCK] = (time, float(mem_clock), 'MHz', 0.0, 7000.0)
+        gpu_temp = gpu_status.temp.gpu
+        if gpu_temp is not None:
+            data[GraphType.GPU_TEMP] = (time, float(gpu_temp), '°C', 0.0, 100.0)
+        if gpu_status.fan.fan_list:
+            fan_duty = gpu_status.fan.fan_list[0][0]
+            data[GraphType.FAN_DUTY] = (time, float(fan_duty), '%', 0.0, 100.0)
+            fan_rpm = gpu_status.fan.fan_list[0][1]
+            data[GraphType.FAN_RPM] = (time, float(fan_rpm), 'rpm', 0.0, 2200.0)
+        gpu_load = gpu_status.info.gpu_usage
+        if gpu_load is not None:
+            data[GraphType.GPU_LOAD] = (time, float(gpu_load), '%', 0.0, 100.0)
+        mem_load = gpu_status.info.memory_usage
+        if mem_load is not None:
+            data[GraphType.MEMORY_LOAD] = (time, float(mem_load), '%', 0.0, 100.0)
+        mem_usage = gpu_status.info.memory_used
+        if mem_usage is not None and gpu_status.info.memory_total is not None:
+            data[GraphType.MEMORY_USAGE] = (time, float(mem_usage), 'MiB', 0.0, float(gpu_status.info.memory_total))
+        power_draw = gpu_status.power.draw
+        maximum = gpu_status.power.maximum
+        if power_draw is not None:
+            data[GraphType.POWER_DRAW] = (time, power_draw, 'W', 0.0, 400 if maximum is None else maximum)
+        return data
 
     def show(self) -> None:
         self.view.show()
