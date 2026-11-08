@@ -326,6 +326,9 @@ class MainView(MainViewInterface):
                                    "<span size=\"xx-large\">{}</span> °C", gpu_status.temp.gpu)
             for index, value in enumerate(self._fan_duty):
                 if gpu_status.fan.fan_list and index < len(gpu_status.fan.fan_list):
+                    # They were hidden if the previous selected GPU has less fans (or none, like a Tesla)
+                    value.set_visible(True)
+                    self._fan_rpm[index].set_visible(True)
                     self._set_label_markup(value,
                                            "<span size=\"large\">{}</span> %", gpu_status.fan.fan_list[index][0])
                     self._set_label_markup(self._fan_rpm[index],

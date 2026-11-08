@@ -12,6 +12,7 @@ Unreleased
  * Added multi-GPU support: start one instance per GPU with `--gpu-index N` or the `GWE_GPU_INDEX` environment
    variable (each GPU has its own profiles and settings, GPU 0 keeps the existing ones)
  * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU
+ * Fixed the fan duty and RPM not being shown anymore after selecting a GPU without fans (e.g. a Tesla)
  * The historical data (last 5 minutes) of all the GPUs is now recorded in the background, so it is already there when the
    window is opened or the GPU is changed
  * The historical data graphs are now drawn only when there is a new measurement (and shifted by one pixel at a time to
