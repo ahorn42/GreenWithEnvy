@@ -94,6 +94,9 @@ class HistoricalDataView(HistoricalDataViewInterface):
                 if old_graph_views is not None:
                     self._graph_container.remove(old_graph_views)
                 self._graph_container.add(graph_views)
+                # The dialog may already be visible (the GPU can be changed while it is open): show_all() of the dialog
+                # was called before this new graph existed, so a new widget is not shown until explicitly asked.
+                graph_views.show()
 
                 graph_model_iter = graph_model.push(GLib.get_monotonic_time())
                 graph_model.iter_set(graph_model_iter, 0, 0.0)
