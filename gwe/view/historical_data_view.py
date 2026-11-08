@@ -14,20 +14,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with gwe.  If not, see <http://www.gnu.org/licenses/>.
-import time
 import logging
-from typing import Dict, Tuple, Any, List, Optional
+from typing import Dict, Tuple, Mapping, Sequence
 
-from gi.repository import Gtk, GLib, Dazzle, Gdk, GObject
-from gi.repository.GObject import TYPE_DOUBLE
+from gi.repository import Gtk
 from injector import singleton, inject
 
-from gwe.conf import GRAPH_COLOR_HEX
 from gwe.di import HistoricalDataBuilder
-from gwe.presenter.historical_data_presenter import HistoricalDataViewInterface, HistoricalDataPresenter, MONITORING_INTERVAL, \
-    GraphType, GraphSample, GraphData
-from gwe.util.view import is_dazzle_version_supported, apply_window_style
-from gwe.view.graph_stacked_renderer_view import GraphStackedRenderer
+from gwe.presenter.historical_data_presenter import HistoricalDataViewInterface, HistoricalDataPresenter, \
+    MONITORING_INTERVAL, GraphType, GraphSample
+from gwe.util.view import apply_window_style
+from gwe.view.graph_view import GraphView
 
 _LOG = logging.getLogger(__name__)
 
@@ -44,7 +41,10 @@ class HistoricalDataView(HistoricalDataViewInterface):
         self._presenter.view = self
         self._builder: Gtk.Builder = builder
         self._builder.connect_signals(self._presenter)
-        self._graphs: Dict[GraphType, Dict[str, Any]] = {}
+        self._graphs: Dict[GraphType, GraphView] = {}
+        self._labels: Dict[GraphType, Tuple[Gtk.Label, Gtk.Label, Gtk.Label]] = {}
+        # The history of the selected GPU, owned by the presenter
+        self._history: Mapping[GraphType, Sequence[GraphSample]] = {}
         self._init_widgets()
 
     def _init_widgets(self) -> None:
@@ -55,100 +55,40 @@ class HistoricalDataView(HistoricalDataViewInterface):
     def set_transient_for(self, window: Gtk.Window) -> None:
         self._dialog.set_transient_for(window)
 
-    # pylint: disable=attribute-defined-outside-init
-    def _init_graphs(self, history: Optional[Dict[GraphType, List[GraphSample]]] = None) -> None:
-        if is_dazzle_version_supported():
-            self._graph_views: Dict[GraphType, Tuple[Gtk.Label, Gtk.Label, Gtk.Label]] = {}
-            self._graph_models: Dict[GraphType, Dazzle.GraphModel] = {}
-            for graph_type in GraphType:
-                self._graph_container: Gtk.Frame = self._builder.get_object(f'graph_container_{graph_type.value}')
-                self._graph_views[graph_type] = (self._builder.get_object(f'graph_min_value_{graph_type.value}'),
-                                                 self._builder.get_object(f'graph_max_value_{graph_type.value}'),
-                                                 self._builder.get_object(f'graph_max_axis_{graph_type.value}'))
-                graph_views = Dazzle.GraphView()
-                graph_model = Dazzle.GraphModel()
-                graph_renderer = GraphStackedRenderer()
-                graph_views.set_hexpand(True)
-                graph_views.props.height_request = 80
-                graph_renderer.set_line_width(1.5)
-                stroke_color = Gdk.RGBA()
-                stroke_color.parse(GRAPH_COLOR_HEX)
-                stacked_color = Gdk.RGBA()
-                stacked_color.parse(GRAPH_COLOR_HEX)
-                stacked_color.alpha = 0.5
-                graph_renderer.set_stroke_color_rgba(stroke_color)
-                graph_renderer.set_stacked_color_rgba(stacked_color)
-                graph_model.set_timespan(MONITORING_INTERVAL * 1000 * 1000)
-                graph_model.set_max_samples(MONITORING_INTERVAL / self._presenter.get_refresh_interval() + 1)
-                graph_model.props.value_max = 100.0
-                graph_model.props.value_min = 0.0
+    def _init_graphs(self) -> None:
+        for graph_type in GraphType:
+            self._labels[graph_type] = (self._builder.get_object(f'graph_min_value_{graph_type.value}'),
+                                        self._builder.get_object(f'graph_max_value_{graph_type.value}'),
+                                        self._builder.get_object(f'graph_max_axis_{graph_type.value}'))
+            graph = GraphView(MONITORING_INTERVAL * 1000 * 1000)
+            self._builder.get_object(f'graph_container_{graph_type.value}').add(graph)
+            graph.show()
+            self._graphs[graph_type] = graph
 
-                column_ram = Dazzle.GraphColumn().new("Col0", TYPE_DOUBLE)
-                graph_model.add_column(column_ram)
+    def refresh_graphs(self, history: Mapping[GraphType, Sequence[GraphSample]]) -> None:
+        self._history = history
+        # Nothing is calculated or drawn while the window is closed, it is updated when it is opened
+        if self._dialog.props.visible:
+            self._update_graphs()
 
-                graph_views.set_model(graph_model)
-                graph_views.add_renderer(graph_renderer)
-
-                # reset_graphs() calls this again: a Gtk.Frame can only hold one child, so drop the old graph first
-                old_graph_views = self._graph_container.get_child()
-                if old_graph_views is not None:
-                    self._graph_container.remove(old_graph_views)
-                self._graph_container.add(graph_views)
-                # The dialog may already be visible (the GPU can be changed while it is open): show_all() of the dialog
-                # was called before this new graph existed, so a new widget is not shown until explicitly asked.
-                graph_views.show()
-
-                samples = history.get(graph_type) if history else None
-                if samples:
-                    self._load_history(graph_type, graph_model, samples)
-                else:
-                    graph_model_iter = graph_model.push(GLib.get_monotonic_time())
-                    graph_model.iter_set(graph_model_iter, 0, 0.0)
-
-                self._graph_models[graph_type] = graph_model
-
-    def _load_history(self, graph_type: GraphType, graph_model: Dazzle.GraphModel, samples: List[GraphSample]) -> None:
-        values = []
-        for timestamp, value, _, _, axis_maximum in samples:
-            graph_model.props.value_max = max(axis_maximum, graph_model.props.value_max)
-            graph_model_iter = graph_model.push(timestamp)
-            graph_model.iter_set(graph_model_iter, 0, value)
-            values.append(value)
-        _, last_value, unit, _, _ = samples[-1]
-        self._graph_views[graph_type][0].set_text(f"{min(values):.0f}")
-        self._graph_views[graph_type][1].set_text(f"{max(values):.0f}")
-        self._graph_views[graph_type][2].set_text(f"{last_value:.0f} {unit}")
-
-    def reset_graphs(self, history: Dict[GraphType, List[GraphSample]]) -> None:
-        self._init_graphs(history)
-
-    def refresh_graphs(self, data_dict: GraphData) -> None:
-        time1 = time.time()
-        for graph_type, data_tuple in data_dict.items():
-            max_value = self._graph_models[graph_type].props.value_max
-            self._graph_models[graph_type].props.value_max = max(data_tuple[4], max_value)
-            graph_model_iter = self._graph_models[graph_type].push(GLib.get_monotonic_time())
-            self._graph_models[graph_type].iter_set(graph_model_iter, 0, data_tuple[1])
-            self._graph_views[graph_type][2].set_text(f"{data_tuple[1]:.0f} {data_tuple[2]}")
-
-            model_iter = Dazzle.GraphModelIter()
-            if self._dialog.props.visible and self._graph_models[graph_type].get_iter_first(model_iter):
-                min_value = data_tuple[4] * 10
-                max_value = data_tuple[3]
-                while Dazzle.GraphModel.iter_next(iter=model_iter):
-                    gval = GObject.Value()
-                    Dazzle.GraphModel.iter_get_value(iter=model_iter, column=0, value=gval)
-                    val = gval.get_double()
-                    min_value = min(val, min_value)
-                    max_value = max(val, max_value)
-                self._graph_views[graph_type][0].set_text(f"{min_value:.0f}")
-                self._graph_views[graph_type][1].set_text(f"{max_value:.0f}")
-                self._graph_models[graph_type].props.value_max = max(data_tuple[4], max_value)
-        time2 = time.time()
-        _LOG.debug(f'Refresh graph took {((time2 - time1) * 1000.0):.3f} ms')
+    def _update_graphs(self) -> None:
+        for graph_type, graph in self._graphs.items():
+            samples = self._history.get(graph_type)
+            minimum_label, maximum_label, current_label = self._labels[graph_type]
+            if samples:
+                values = [sample[1] for sample in samples]
+                minimum_label.set_text(f"{min(values):.0f}")
+                maximum_label.set_text(f"{max(values):.0f}")
+                current_label.set_text(f"{samples[-1][1]:.0f} {samples[-1][2]}")
+            else:
+                minimum_label.set_text('')
+                maximum_label.set_text('')
+                current_label.set_text('')
+            graph.set_samples(samples or ())
 
     def show(self) -> None:
         self._dialog.show_all()
+        self._update_graphs()
 
     def hide(self) -> None:
         self._dialog.hide()

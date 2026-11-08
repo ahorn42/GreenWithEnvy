@@ -1019,22 +1019,6 @@ along with GWE.  If not, see <http://www.gnu.org/licenses/>.
                         <property name="top_attach">16</property>
                       </packing>
                     </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="margin_top">6</property>
-                        <property name="label" translatable="yes">This dialog is CPU intensive, leaving it open while gaming may affect performance.</property>
-                        <property name="wrap">True</property>
-                        <property name="xalign">0</property>
-                      </object>
-                      <packing>
-                        <property name="left_attach">0</property>
-                        <property name="top_attach">18</property>
-                        <property name="width">6</property>
-                      </packing>
-                    </child>
                   </object>
                 </child>
               </object>

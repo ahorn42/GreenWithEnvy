@@ -17,7 +17,7 @@
 import logging
 from collections import deque
 from enum import Enum
-from typing import Any, Tuple, Dict, List, Deque
+from typing import Any, Tuple, Dict, Deque, Mapping, Sequence
 
 from gi.repository import Gtk, GLib
 from injector import singleton, inject
@@ -25,7 +25,7 @@ from injector import singleton, inject
 from gwe.interactor.settings_interactor import SettingsInteractor
 from gwe.model.gpu_status import GpuStatus
 from gwe.model.status import Status
-from gwe.util.view import hide_on_delete, is_dazzle_version_supported
+from gwe.util.view import hide_on_delete
 
 _LOG = logging.getLogger(__name__)
 
@@ -56,10 +56,7 @@ class HistoricalDataViewInterface:
     def hide(self) -> None:
         raise NotImplementedError()
 
-    def reset_graphs(self, history: Dict[GraphType, List[GraphSample]]) -> None:
-        raise NotImplementedError()
-
-    def refresh_graphs(self, data: GraphData) -> None:
+    def refresh_graphs(self, history: Mapping[GraphType, Sequence[GraphSample]]) -> None:
         raise NotImplementedError()
 
 
@@ -78,21 +75,15 @@ class HistoricalDataPresenter:
         self._history: Dict[int, Dict[GraphType, Deque[GraphSample]]] = {}
 
     def add_status(self, new_status: Status, gpu_index: int) -> None:
-        if not is_dazzle_version_supported():
-            return
         time = GLib.get_monotonic_time()
         for gpu_status in new_status.gpu_status_list:
             self._record(gpu_status.index, self._get_graph_data(gpu_status, time), time)
-        if self._gpu_index != gpu_index:
-            self.select_gpu(gpu_index)  # The graphs are loaded from the history, that already contains the new status
-        else:
-            self.view.refresh_graphs(self._get_latest_graph_data(gpu_index))
+        self.select_gpu(gpu_index)
 
     def select_gpu(self, gpu_index: int) -> None:
         """Shows the history of the given GPU."""
         self._gpu_index = gpu_index
-        self.view.reset_graphs({graph_type: list(samples)
-                                for graph_type, samples in self._history.get(gpu_index, {}).items()})
+        self.view.refresh_graphs(self._history.get(gpu_index, {}))
 
     def _record(self, gpu_index: int, data: GraphData, time: int) -> None:
         history = self._history.setdefault(gpu_index, {})
@@ -102,10 +93,6 @@ class HistoricalDataPresenter:
             samples.append(sample)
             while samples[0][0] < oldest_time:
                 samples.popleft()
-
-    def _get_latest_graph_data(self, gpu_index: int) -> GraphData:
-        return {graph_type: samples[-1] for graph_type, samples in self._history.get(gpu_index, {}).items()
-                if samples}
 
     @staticmethod
     def _get_graph_data(gpu_status: GpuStatus, time: int) -> GraphData:

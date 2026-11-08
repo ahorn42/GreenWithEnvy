@@ -69,17 +69,17 @@ Gtk/cairo (PyGObject and pycairo are compiled when installed) and the Gtk typeli
 ```bash
 # Build time: the compiler and the development files needed to compile PyGObject and pycairo
 sudo apt install build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev
-# Run time: the Gtk, libdazzle (historical data graphs) and libnotify typelibs
-sudo apt install gir1.2-gtk-3.0 gir1.2-dazzle-1.0 gir1.2-notify-0.7
+# Run time: the Gtk and libnotify typelibs
+sudo apt install gir1.2-gtk-3.0 gir1.2-notify-0.7
 # Optional: tray icon (GNOME also needs the AppIndicator extension, which is not needed to use GWE)
 sudo apt install gir1.2-appindicator3-0.1
 ```
 
 | Distro                | Build time                                                                                      | Run time (typelibs)                                                |
 | --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Debian/Ubuntu         | build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev        | gir1.2-gtk-3.0 gir1.2-dazzle-1.0 gir1.2-notify-0.7                 |
-| Fedora                | gcc pkgconf-pkg-config python3-devel cairo-devel gobject-introspection-devel cairo-gobject-devel | gtk3 libdazzle libnotify                                           |
-| Arch Linux            | base-devel python cairo gobject-introspection                                                   | gtk3 libdazzle libnotify                                           |
+| Debian/Ubuntu         | build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev        | gir1.2-gtk-3.0 gir1.2-notify-0.7                                   |
+| Fedora                | gcc pkgconf-pkg-config python3-devel cairo-devel gobject-introspection-devel cairo-gobject-devel | gtk3 libnotify                                                     |
+| Arch Linux            | base-devel python cairo gobject-introspection                                                   | gtk3 libnotify                                                     |
 
 The package names of the distros other than Debian/Ubuntu are not tested.
 
@@ -282,7 +282,7 @@ feel free to open an issue on the [issue tracker](https://gitlab.com/leinardi/gw
 ## ⚠ Dropped PyPI support
 Development builds were previously distributed using PyPI. This way of distributing the software is simple
 but requires the user to manually install all the non Python dependencies like cairo, glib, appindicator3, etc.
-The current implementation of the historical data uses a new library, Dazzle, that requires Gnome 3.30 which is
+The historical data used to need a new library, Dazzle (it is not needed anymore), that required Gnome 3.30 which was
 available, using Python Object introspection, only starting from Ubuntu 18.10 making the latest Ubuntu LTS, 18.04,
 unsupported.
 A solution for all this problems is distributing the app via Flatpak, since with it all the dependencies

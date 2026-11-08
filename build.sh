@@ -69,7 +69,7 @@ function build_local {
 	local venv="${BUILD_DIR}/venv"
 	local python="${PYTHON:-python3}"
 	local apt_build_packages="build-essential pkg-config python3-dev python3-venv libcairo2-dev libgirepository1.0-dev"
-	local apt_runtime_packages="gir1.2-gtk-3.0 gir1.2-dazzle-1.0 gir1.2-notify-0.7"
+	local apt_runtime_packages="gir1.2-gtk-3.0 gir1.2-notify-0.7"
 
 	if ! command -v gcc > /dev/null || ! command -v pkg-config > /dev/null \
 		|| ! pkg-config --exists cairo gobject-introspection-1.0 \
@@ -89,7 +89,7 @@ function build_local {
 		"${venv}/bin/python" - << 'EOF' || { echo "Missing typelibs. On Debian/Ubuntu install them with:"; \
 			echo "    sudo apt install ${apt_runtime_packages}"; exit 1; }
 import gi
-for namespace, version in (('Gtk', '3.0'), ('Gdk', '3.0'), ('Dazzle', '1.0'), ('Notify', '0.7')):
+for namespace, version in (('Gtk', '3.0'), ('Gdk', '3.0'), ('Notify', '0.7')):
     gi.require_version(namespace, version)
 EOF
 
