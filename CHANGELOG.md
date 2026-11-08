@@ -8,9 +8,9 @@ Unreleased
  * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU
  * The historical data (last 5 minutes) of all the GPUs is now recorded in the background, so it is already there when the
    window is opened or the GPU is changed
- * The historical data graphs are now drawn only when there is a new measurement instead of 60 times per second: the
-   window uses about 0.2% of a CPU core instead of 3% (the same as when it is closed) and the "CPU intensive" warning
-   is gone. The graphs don't scroll smoothly between two measurements anymore
+ * The historical data graphs are now drawn only when there is a new measurement (and shifted by one pixel at a time to
+   scroll them smoothly) instead of redrawing the window 60 times per second: it uses about 0.3% of a CPU core instead
+   of 3% and the "CPU intensive" warning is gone
  * libdazzle (the `Dazzle` typelib) is not needed anymore
  * Fixed the historical data graphs not being reset (and not shown at all when the window is open) when the GPU changes
  * `./build.sh` now builds GWE in a virtualenv (`build/venv`) with all the Python dependencies from `requirements.txt` and
