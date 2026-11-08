@@ -27,7 +27,7 @@ from gwe.conf import MIN_TEMP, FAN_MIN_DUTY, MAX_TEMP, FAN_MAX_DUTY
 from gwe.di import EditFanProfileBuilder
 from gwe.interactor.settings_interactor import SettingsInteractor
 from gwe.presenter.edit_fan_profile_presenter import EditFanProfileViewInterface, EditFanProfilePresenter
-from gwe.util.view import init_plot_chart, get_fan_profile_data
+from gwe.util.view import init_plot_chart, get_fan_profile_data, apply_window_style
 from gwe.model.fan_profile import FanProfile
 from gwe.model.speed_step import SpeedStep
 
@@ -52,6 +52,7 @@ class EditFanProfileView(EditFanProfileViewInterface):
 
     def _init_widgets(self) -> None:
         self._dialog: Gtk.Dialog = self._builder.get_object('dialog')
+        apply_window_style(self._dialog)
         self._delete_profile_button: Gtk.Button = self._builder \
             .get_object('delete_profile_button')
         self._profile_name_entry: Gtk.Entry = self._builder \

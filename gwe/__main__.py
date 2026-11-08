@@ -30,9 +30,11 @@ from gi.repository import GLib
 from rx.disposable import CompositeDisposable
 
 from gwe.util.gpu_selection import init_gpu_index, get_gpu_index
+from gwe.util.window_style import init_window_style
 
 # The selected GPU decides which database is used, and the models open it while they are imported: resolve it first
 init_gpu_index()
+init_window_style()
 
 from gwe.conf import APP_PACKAGE_NAME  # pylint: disable=wrong-import-position
 from gwe.model.current_fan_profile import CurrentFanProfile

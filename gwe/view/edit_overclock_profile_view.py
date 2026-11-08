@@ -22,6 +22,7 @@ from injector import singleton, inject
 from gwe.di import EditOverclockProfileBuilder
 from gwe.model.overclock_profile import OverclockProfile
 from gwe.model.overclock import Overclock
+from gwe.util.view import apply_window_style
 from gwe.presenter.edit_overclock_profile_presenter import EditOverclockProfileViewInterface, \
     EditOverclockProfilePresenter
 
@@ -44,6 +45,7 @@ class EditOverclockProfileView(EditOverclockProfileViewInterface):
 
     def _init_widgets(self) -> None:
         self._dialog: Gtk.Dialog = self._builder.get_object('dialog')
+        apply_window_style(self._dialog)
         self._delete_profile_button: Gtk.Button = self._builder.get_object('delete_profile_button')
         self._profile_name_entry: Gtk.Entry = self._builder.get_object('profile_name_entry')
         self._apply_offsets_button: Gtk.Button = self._builder.get_object('apply_offsets_button')

@@ -34,6 +34,7 @@ from gwe.util.deployment import is_flatpak
 from gwe.util.desktop_entry import set_autostart_entry, add_application_entry
 from gwe.util.gpu_selection import get_application_id, get_gpu_index, GPU_INDEX_CLI_OPTION, GPU_INDEX_ENV_VAR
 from gwe.util.log import LOG_DEBUG_FORMAT
+from gwe.util.window_style import HEADER_BAR_CLI_OPTION, NO_HEADER_BAR_CLI_OPTION, HEADER_BAR_ENV_VAR
 from gwe.util.view import build_glib_option
 from gwe.view.main_view import MainView
 
@@ -126,6 +127,11 @@ class Application(Gtk.Application):
             # Already resolved in __main__ (it is needed before this Application exists), just log it here
             _LOG.debug(f"Option {_Options.GPU_INDEX.value} selected: {options[_Options.GPU_INDEX.value]}")
 
+        for option in (_Options.HEADER_BAR, _Options.NO_HEADER_BAR):
+            if option.value in options:
+                # Already resolved in __main__ (the windows are created before this is called), just log it here
+                _LOG.debug(f"Option {option.value} selected")
+
         if start_app:
             self.activate()
         return exit_value
@@ -150,6 +156,12 @@ class Application(Gtk.Application):
                               description="Index of the GPU to control (default: 0, can also be set with the "
                                           f"{GPU_INDEX_ENV_VAR} environment variable). Start one instance of GWE "
                                           "for each GPU you want to manage"),
+            build_glib_option(_Options.HEADER_BAR.value,
+                              description="Use the GNOME style header bar instead of the classic title bar "
+                                          f"(default: only on GNOME, can also be set with {HEADER_BAR_ENV_VAR}=1)"),
+            build_glib_option(_Options.NO_HEADER_BAR.value,
+                              description="Use the classic title bar with a toolbar instead of the header bar "
+                                          f"(default: on all the desktops but GNOME, {HEADER_BAR_ENV_VAR}=0)"),
         ]
         if not is_flatpak():
             options.append(build_glib_option(_Options.AUTOSTART_ON.value,
@@ -165,5 +177,7 @@ class _Options(Enum):
     HIDE_WINDOW = 'hide-window'
     CTRL_DISPLAY = 'ctrl-display'
     GPU_INDEX = GPU_INDEX_CLI_OPTION
+    HEADER_BAR = HEADER_BAR_CLI_OPTION
+    NO_HEADER_BAR = NO_HEADER_BAR_CLI_OPTION
     AUTOSTART_ON = 'autostart-on'
     AUTOSTART_OFF = 'autostart-off'

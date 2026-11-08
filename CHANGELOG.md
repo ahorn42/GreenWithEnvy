@@ -1,6 +1,8 @@
 Unreleased
 ==========
 
+ * On the desktops other than GNOME (e.g. KDE Plasma) the windows now use the classic title bar with a toolbar instead of
+   the GNOME style header bar. It can be changed with `--header-bar` / `--no-header-bar` or `GWE_HEADER_BAR`
  * Added multi-GPU support: start one instance per GPU with `--gpu-index N` or the `GWE_GPU_INDEX` environment
    variable (each GPU has its own profiles and settings, GPU 0 keeps the existing ones)
  * The GPU name in the main window is now a drop-down list that allows to switch the controlled GPU

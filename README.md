@@ -154,8 +154,20 @@ If you don't want to create this custom rule you can run gwe as root
   |--hide-window              |Start with the main window hidden          |    x   |    x    |
   |--ctrl-display DISPLAY     |Specify the NV-CONTROL display             |    x   |    x    |
   |--gpu-index INDEX          |Index of the GPU to control (default: 0)   |    x   |    x    |
+  |--header-bar               |Use the GNOME style header bar             |    x   |    x    |
+  |--no-header-bar            |Use the classic title bar with a toolbar   |    x   |    x    |
   |--autostart-on             |Enable automatic start of the app on login |    x   |         |
   |--autostart-off            |Disable automatic start of the app on login|    x   |         |
+
+## 🪟 Window style (GNOME, KDE and other desktops)
+On GNOME (and Budgie/Pantheon) GWE uses the GNOME style header bar. On all the other desktops, e.g. KDE Plasma, it uses
+the classic title bar drawn by the window manager and moves the buttons of the header bar to a toolbar below it.
+The desktop is detected with `XDG_CURRENT_DESKTOP`. To force a style use the `--header-bar` or `--no-header-bar` option,
+or set `GWE_HEADER_BAR` to `1` (header bar), `0` (classic) or `auto` (default). The option wins over the variable.
+
+Only the title bars are adapted: GWE is still a Gtk3 application and uses the Gtk theme. On KDE install the Breeze Gtk
+theme and `kde-gtk-config` (System Settings > Appearance > Application Style > Configure GNOME/GTK Application Style) to
+get the Plasma colors, fonts and icons.
 
 ## 🖥️🖥️ Multiple GPUs
 GWE controls one GPU per running instance. To manage several GPUs, start one instance for each of them and select

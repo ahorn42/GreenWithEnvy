@@ -24,6 +24,7 @@ from matplotlib.figure import Figure
 
 from gwe.conf import MIN_TEMP, MAX_TEMP, FAN_MAX_DUTY, GRAPH_COLOR_HEX
 from gwe.model.fan_profile import FanProfile
+from gwe.util.window_style import use_header_bar
 
 
 def build_glib_option(long_name: str,
@@ -42,6 +43,58 @@ def build_glib_option(long_name: str,
     option.arg_description = arg_description
     option.arg_data = arg_data
     return option
+
+
+def _find_header_bar(widget: Optional[Gtk.Widget]) -> Optional[Gtk.HeaderBar]:
+    if isinstance(widget, Gtk.HeaderBar):
+        return widget
+    if isinstance(widget, Gtk.Container):
+        for child in widget.get_children():
+            header_bar = _find_header_bar(child)
+            if header_bar is not None:
+                return header_bar
+    return None
+
+
+def apply_window_style(window: Gtk.Window) -> None:
+    """Replaces the header bar of the window (the GNOME style title bar defined in the Glade files) with a classic
+    title bar, drawn by the window manager, and a toolbar with the buttons that were in the header bar, unless the
+    header bar should be used (see gwe.util.window_style)."""
+    if use_header_bar():
+        return
+    header_bar = _find_header_bar(window.get_titlebar())
+    if header_bar is None:
+        return
+    window.set_title(header_bar.get_title())
+    toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    toolbar.set_border_width(6)
+    for child in header_bar.get_children():
+        pack_type = header_bar.child_get_property(child, 'pack-type')
+        header_bar.remove(child)
+        if pack_type == Gtk.PackType.END:
+            toolbar.pack_end(child, False, False, 0)
+        else:
+            toolbar.pack_start(child, False, False, 0)
+    window.set_titlebar(None)
+    if not toolbar.get_children():
+        return
+    toolbar.show()
+    # The header bar was part of the default size, the toolbar is not: don't take its height from the content
+    width, height = window.get_default_size()
+    if height > 0:
+        window.set_default_size(width, height + toolbar.get_preferred_height()[1])
+    if isinstance(window, Gtk.Dialog):
+        content_area = window.get_content_area()
+        content_area.pack_start(toolbar, False, False, 0)
+        content_area.reorder_child(toolbar, 0)
+    else:
+        content = window.get_child()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        window.remove(content)
+        box.pack_start(toolbar, False, False, 0)
+        box.pack_start(content, True, True, 0)
+        window.add(box)
+        box.show()
 
 
 def hide_on_delete(widget: Gtk.Widget, *_: Any) -> Any:

@@ -38,7 +38,8 @@ except (ImportError, ValueError):
 from gwe.di import MainBuilder
 from gwe.view.edit_fan_profile_view import EditFanProfileView
 from gwe.util.gpu_selection import get_application_id, get_gpu_index
-from gwe.util.view import hide_on_delete, init_plot_chart, get_fan_profile_data, is_dazzle_version_supported
+from gwe.util.view import hide_on_delete, init_plot_chart, get_fan_profile_data, is_dazzle_version_supported, \
+    apply_window_style
 from gwe.view.edit_overclock_profile_view import EditOverclockProfileView
 from gwe.view.historical_data_view import HistoricalDataView
 from gwe.view.preferences_view import PreferencesView
@@ -78,6 +79,7 @@ class MainView(MainViewInterface):
     def _init_widgets(self) -> None:
         self._app_indicator: Optional[AppIndicator3.Indicator] = None
         self._window = self._builder.get_object("application_window")
+        apply_window_style(self._window)
         self._edit_fan_profile_view.set_transient_for(self._window)
         self._edit_overclock_profile_view.set_transient_for(self._window)
         self._historical_data_view.set_transient_for(self._window)
