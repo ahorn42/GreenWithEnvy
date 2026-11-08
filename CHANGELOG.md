@@ -1,6 +1,10 @@
 Unreleased
 ==========
 
+ * The refresh interval (default 3 s) can be changed from a drop-down list in the main window (0.5, 1, 3 or 5 s) and
+   from the settings (0.5 to 10 s, in steps of 0.5 s), and it is applied immediately. A refresh that is still running
+   when the next one is due is not started a second time, so the reads can't pile up when they are slower than the
+   interval
  * On the desktops other than GNOME (e.g. KDE Plasma) the windows now use the classic title bar with a toolbar instead of
    the GNOME style header bar. It can be changed with `--header-bar` / `--no-header-bar` or `GWE_HEADER_BAR`
  * Added multi-GPU support: start one instance per GPU with `--gpu-index N` or the `GWE_GPU_INDEX` environment

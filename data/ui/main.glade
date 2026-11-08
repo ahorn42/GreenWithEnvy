@@ -149,6 +149,17 @@ along with gwe.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
+              <object class="GtkComboBoxText" id="refresh_interval_combobox">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Refresh interval: how often the measurements are read and the fan speed is updated</property>
+                <signal name="changed" handler="on_refresh_interval_changed" swapped="no"/>
+              </object>
+              <packing>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkMenuButton" id="main_menu_button">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>

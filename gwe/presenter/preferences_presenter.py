@@ -63,6 +63,8 @@ class PreferencesPresenter:
                 settings[key] = self._settings_interactor.get_bool(key)
             elif isinstance(default_value, int):
                 settings[key] = self._settings_interactor.get_int(key)
+            elif isinstance(default_value, float):
+                settings[key] = self._settings_interactor.get_float(key)
         self.view.refresh_settings(settings)
 
     def on_setting_changed(self, widget: Any, *args: Any) -> None:
@@ -74,5 +76,7 @@ class PreferencesPresenter:
                 set_autostart_entry(value)
         elif isinstance(widget, Gtk.SpinButton):
             key = re.sub('_spinbutton$', '', widget.get_name())
-            value = widget.get_value_as_int()
-            self._settings_interactor.set_int(key, value)
+            if isinstance(SETTINGS_DEFAULTS.get(key), float):
+                self._settings_interactor.set_float(key, widget.get_value())
+            else:
+                self._settings_interactor.set_int(key, widget.get_value_as_int())

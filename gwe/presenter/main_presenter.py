@@ -18,13 +18,14 @@
 
 import logging
 import multiprocessing
+import threading
 from typing import Optional, Any, List, Tuple
 
 import rx
 from gi.repository import GLib
 from injector import inject, singleton
 from rx import Observable, operators
-from rx.disposable import CompositeDisposable
+from rx.disposable import CompositeDisposable, SerialDisposable
 from rx.scheduler import ThreadPoolScheduler
 from rx.scheduler.mainloop import GtkScheduler
 
@@ -67,6 +68,9 @@ class MainViewInterface:
         raise NotImplementedError()
 
     def reset_gpu_view(self) -> None:
+        raise NotImplementedError()
+
+    def set_refresh_interval(self, interval: float) -> None:
         raise NotImplementedError()
 
     def refresh_fan_profile_combobox(self, data: List[Tuple[int, str]], active: Optional[int]) -> None:
@@ -154,6 +158,9 @@ class MainPresenter:
         self._previous_status: Optional[Status] = None
         self._gpu_index: int = get_gpu_index()
         self._invalid_gpu_index_reported = False
+        self._refresh_subscription = SerialDisposable()
+        self._composite_disposable.add(self._refresh_subscription)
+        self._status_fetch_lock = threading.Lock()
 
     def on_start(self) -> None:
         self._refresh_fan_profile_ui(True)
@@ -246,6 +253,13 @@ class MainPresenter:
         self.main_view.reset_gpu_view()
         self.main_view.refresh_status(self._latest_status, gpu_index)
         self._historical_data_presenter.select_gpu(gpu_index)
+
+    def on_refresh_interval_changed(self, widget: Any, *_: Any) -> None:
+        interval_id = widget.get_active_id()
+        # None is emitted when the view fills the combobox, the current value when it selects it
+        if interval_id is not None and float(interval_id) != self._settings_interactor.get_float(
+                'settings_refresh_interval'):
+            self._settings_interactor.set_float('settings_refresh_interval', float(interval_id))
 
     def on_menu_settings_clicked(self, *_: Any) -> None:
         self._preferences_presenter.show()
@@ -341,17 +355,21 @@ class MainPresenter:
     def _on_setting_list_changed(self, db_change: DbChange) -> None:
         if db_change.entry.key == 'settings_hysteresis' and self._fan_profile_applied:
             self.main_view.refresh_chart(self._fan_profile_applied)
+        elif db_change.entry.key == 'settings_refresh_interval':
+            self._start_refresh()
 
     def _start_refresh(self) -> None:
         _LOG.debug("start refresh")
-        refresh_interval = self._settings_interactor.get_int('settings_refresh_interval')
-        self._composite_disposable.add(rx.interval(refresh_interval, scheduler=self._scheduler).pipe(
+        refresh_interval = self._settings_interactor.get_float('settings_refresh_interval')
+        self.main_view.set_refresh_interval(refresh_interval)
+        # Replacing the disposable stops the previous refresh, if there is one (the interval was changed)
+        self._refresh_subscription.disposable = rx.interval(refresh_interval, scheduler=self._scheduler).pipe(
             operators.start_with(0),
             operators.subscribe_on(self._scheduler),
             operators.flat_map(lambda _: self._get_status()),
             operators.observe_on(GtkScheduler(GLib)),
         ).subscribe(on_next=self._on_status_updated,
-                    on_error=lambda e: _LOG.exception(f"Refresh error: {str(e)}")))
+                    on_error=lambda e: _LOG.exception(f"Refresh error: {str(e)}"))
 
     def _on_status_updated(self, status: Optional[Status]) -> None:
         if status is not None:
@@ -550,11 +568,20 @@ class MainPresenter:
         return observable
 
     def _get_status(self) -> Observable:
-        observable = self._get_status_interactor.execute().pipe(
-            operators.catch(self._log_exception_return_empty_observable)
-        )
-        assert isinstance(observable, Observable)
-        return observable
+        def fetch_status(_: Any) -> Observable:
+            # Reading the status takes time: if it takes longer than the refresh interval the requests would pile up
+            # (they are executed one after the other), so the ones that come while the previous is running are skipped
+            if not self._status_fetch_lock.acquire(blocking=False):
+                _LOG.debug("The previous refresh is still running, skipped")
+                return rx.empty()
+            observable = self._get_status_interactor.execute().pipe(
+                operators.catch(self._log_exception_return_empty_observable),
+                operators.finally_action(self._status_fetch_lock.release)
+            )
+            assert isinstance(observable, Observable)
+            return observable
+
+        return rx.defer(fetch_status)
 
     def _check_new_version(self) -> None:
         self._composite_disposable.add(self._check_new_version_interactor.execute().pipe(

@@ -29,11 +29,11 @@ along with GWE.  If not, see <http://www.gnu.org/licenses/>.
     <property name="page_increment">20</property>
   </object>
   <object class="GtkAdjustment" id="settings_refresh_interval_adjustment">
-    <property name="lower">1</property>
+    <property name="lower">0.5</property>
     <property name="upper">10</property>
     <property name="value">3</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">10</property>
+    <property name="step_increment">0.5</property>
+    <property name="page_increment">1</property>
   </object>
   <object class="GtkDialog" id="dialog">
     <property name="can_focus">False</property>
@@ -464,6 +464,7 @@ along with GWE.  If not, see <http://www.gnu.org/licenses/>.
                                                 <property name="can_focus">True</property>
                                                 <property name="input_purpose">digits</property>
                                                 <property name="adjustment">settings_refresh_interval_adjustment</property>
+                                                <property name="digits">1</property>
                                                 <property name="update_policy">if-valid</property>
                                                 <signal name="value-changed" handler="on_setting_changed" swapped="no"/>
                                               </object>

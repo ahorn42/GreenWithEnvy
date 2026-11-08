@@ -159,6 +159,16 @@ If you don't want to create this custom rule you can run gwe as root
   |--autostart-on             |Enable automatic start of the app on login |    x   |         |
   |--autostart-off            |Disable automatic start of the app on login|    x   |         |
 
+## ⏱️ Refresh interval
+The measurements are read every 3 seconds by default. The drop-down list next to the *Historical data* button of the main
+window changes the interval (0.5, 1, 3 or 5 seconds) immediately, without restarting GWE. Any value between 0.5 and
+10 seconds can be set in the settings (it is added to the list). The interval is also how often the fan profile is
+applied and how often the historical data graphs get a new value.
+
+Reading the status takes some time (all the GPUs are queried through NVML and NV-CONTROL). `gwe --debug` prints how long
+it takes ("Fetching new data took ... ms"): if it takes longer than the interval, the refreshes that would overlap are
+skipped, so the real rate is lower than the selected one and GWE can't get stuck. Short intervals use more CPU.
+
 ## 🪟 Window style (GNOME, KDE and other desktops)
 On GNOME (and Budgie/Pantheon) GWE uses the GNOME style header bar. On all the other desktops, e.g. KDE Plasma, it uses
 the classic title bar drawn by the window manager and moves the buttons of the header bar to a toolbar below it.

@@ -64,6 +64,6 @@ class PreferencesView(PreferencesViewInterface):
             if isinstance(value, bool):
                 switch: Gtk.Switch = self._builder.get_object(key + '_switch')
                 switch.set_active(value)
-            elif isinstance(value, int):
+            elif isinstance(value, (int, float)):
                 spinbutton: Gtk.SpinButton = self._builder.get_object(key + '_spinbutton')
                 spinbutton.set_value(value)

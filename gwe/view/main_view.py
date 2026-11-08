@@ -46,6 +46,7 @@ from gwe.conf import APP_PACKAGE_NAME, APP_ID, APP_NAME, APP_VERSION, APP_SOURCE
 from gwe.presenter.main_presenter import MainPresenter, MainViewInterface
 
 _LOG = logging.getLogger(__name__)
+_REFRESH_INTERVALS = (0.5, 1.0, 3.0, 5.0)  # Seconds, the choices of the refresh interval combobox
 if AppIndicator3 is None:
     _LOG.warning("AppIndicator3 is not installed. The App indicator will not be shown.")
 
@@ -95,6 +96,7 @@ class MainView(MainViewInterface):
         self._about_dialog: Gtk.AboutDialog = self._builder.get_object("about_dialog")
         self._init_about_dialog()
         self._info_name_combobox: Gtk.ComboBoxText = self._builder.get_object('info_name_combobox')
+        self._refresh_interval_combobox: Gtk.ComboBoxText = self._builder.get_object('refresh_interval_combobox')
         self._info_vbios_entry: Gtk.Entry = self._builder.get_object('info_vbios_entry')
         self._info_driver_entry: Gtk.Entry = self._builder.get_object('info_driver_entry')
         self._info_pcie_entry: Gtk.Entry = self._builder.get_object('info_pcie_entry')
@@ -216,6 +218,16 @@ class MainView(MainViewInterface):
         dialog.format_secondary_text(message)
         dialog.run()
         dialog.destroy()
+
+    def set_refresh_interval(self, interval: float) -> None:
+        """Selects the refresh interval (seconds) in the combobox. The values set in the preferences that are not in the
+        list of the common ones are added to it."""
+        intervals = sorted(set(_REFRESH_INTERVALS) | {interval})
+        # remove_all() and set_active_id() emit "changed", the presenter ignores it as the interval is already set
+        self._refresh_interval_combobox.remove_all()
+        for value in intervals:
+            self._refresh_interval_combobox.append(f"{value:g}", f"{value:g} s")
+        self._refresh_interval_combobox.set_active_id(f"{interval:g}")
 
     def reset_gpu_view(self) -> None:
         """Forces the next refresh_status() to reload the data that doesn't change between two refreshes of the same

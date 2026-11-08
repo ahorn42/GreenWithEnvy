@@ -12,13 +12,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with gwe.  If not, see <http://www.gnu.org/licenses/>.
-from typing import Sequence, Optional, Tuple
+from typing import Sequence, Optional, Tuple, List
 
 import cairo
 from gi.repository import Gtk, Gdk, GLib
 
 from gwe.conf import GRAPH_COLOR_HEX
 from gwe.presenter.historical_data_presenter import GraphSample
+
+
+_MAX_STRAIGHT_STEP = 4  # Pixels: between closer points a straight line looks the same as a curve
 
 
 class GraphView(Gtk.DrawingArea):
@@ -102,6 +105,30 @@ class GraphView(Gtk.DrawingArea):
             cairo_context.paint()
         return False
 
+    @staticmethod
+    def _decimate(samples: Sequence[GraphSample], bucket: float) -> List[Tuple[int, float]]:
+        """The (time, value) of the samples, with the ones closer than `bucket` microseconds (e.g. one pixel) replaced by
+        their average: drawing more points than pixels only wastes time. The buckets are aligned to the time (and not to
+        the newest sample), so the curve doesn't change shape when a new sample arrives. The last point is exact."""
+        if len(samples) <= 1 or (samples[-1][0] - samples[0][0]) / len(samples) >= bucket:
+            return [(sample[0], sample[1]) for sample in samples]
+        points: List[Tuple[int, float]] = []
+        current = None
+        count = 0
+        time_sum = value_sum = 0.0
+        for timestamp, value, _, _, _ in samples:
+            index = timestamp // bucket
+            if index != current and count:
+                points.append((int(time_sum / count), value_sum / count))
+                count = 0
+                time_sum = value_sum = 0.0
+            current = index
+            count += 1
+            time_sum += timestamp
+            value_sum += value
+        points.append((samples[-1][0], samples[-1][1]))
+        return points
+
     def _render_surface(self, widget: Gtk.Widget, width: int, height: int) -> None:
         samples = self._samples
         end = samples[-1][0]
@@ -120,14 +147,17 @@ class GraphView(Gtk.DrawingArea):
         cairo_context = cairo.Context(surface)
         points = [((timestamp - begin) / self._timespan * width,
                    height - (value - minimum) / (maximum - minimum) * height)
-                  for timestamp, value, _, _, _ in samples]
+                  for timestamp, value in self._decimate(samples, self._timespan / width)]
 
         cairo_context.set_line_width(1.5)
         cairo_context.move_to(*points[0])
         last_x, last_y = points[0]
         for x, y in points[1:]:
-            half_step = (x - last_x) / 2.0
-            cairo_context.curve_to(last_x + half_step, last_y, last_x + half_step, y, x, y)
+            if x - last_x < _MAX_STRAIGHT_STEP:
+                cairo_context.line_to(x, y)  # Looks the same as a curve and costs less
+            else:
+                half_step = (x - last_x) / 2.0
+                cairo_context.curve_to(last_x + half_step, last_y, last_x + half_step, y, x, y)
             last_x, last_y = x, y
 
         # The line, then the area below it

@@ -66,6 +66,25 @@ class SettingsInteractor:
             Setting.create(key=key, value=value)
 
     @staticmethod
+    def get_float(key: str, default: Optional[float] = None) -> float:
+        if default is None:
+            default = SETTINGS_DEFAULTS[key]
+        setting: Setting = Setting.get_or_none(key=key)
+        if setting is not None:
+            return float(setting.value)
+        assert default is not None
+        return float(default)
+
+    @staticmethod
+    def set_float(key: str, value: float) -> None:
+        setting: Setting = Setting.get_or_none(key=key)
+        if setting is not None:
+            setting.value = value
+            setting.save()
+        else:
+            Setting.create(key=key, value=value)
+
+    @staticmethod
     def get_str(key: str, default: Optional[str] = None) -> str:
         if default is None:
             default = SETTINGS_DEFAULTS[key]

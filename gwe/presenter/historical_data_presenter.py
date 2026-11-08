@@ -134,6 +134,3 @@ class HistoricalDataPresenter:
     @staticmethod
     def on_dialog_delete_event(widget: Gtk.Widget, *_: Any) -> Any:
         return hide_on_delete(widget)
-
-    def get_refresh_interval(self) -> int:
-        return self._settings_interactor.get_int('settings_refresh_interval')
