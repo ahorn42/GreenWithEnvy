@@ -29,7 +29,9 @@ from gwe.util.view import hide_on_delete
 
 _LOG = logging.getLogger(__name__)
 
-MONITORING_INTERVAL = 300  # Seconds of history kept (and shown) for every GPU
+MONITORING_INTERVAL = 300  # Seconds of history shown for every GPU
+# The graph is shown delayed by one measurement interval (see GraphView): keep a bit more than what is shown
+HISTORY_MARGIN = 20  # Seconds
 
 
 class GraphType(Enum):
@@ -87,7 +89,7 @@ class HistoricalDataPresenter:
 
     def _record(self, gpu_index: int, data: GraphData, time: int) -> None:
         history = self._history.setdefault(gpu_index, {})
-        oldest_time = time - MONITORING_INTERVAL * 1000 * 1000
+        oldest_time = time - (MONITORING_INTERVAL + HISTORY_MARGIN) * 1000 * 1000
         for graph_type, sample in data.items():
             samples = history.setdefault(graph_type, deque())
             samples.append(sample)

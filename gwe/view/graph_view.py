@@ -25,8 +25,13 @@ class GraphView(Gtk.DrawingArea):
     """Area graph of the measurements of the last `timespan` microseconds, scrolling smoothly to the left.
 
     Dazzle.GraphView redraws the whole graph 60 times per second to scroll it, but the graph moves just about one pixel
-    per second (e.g. 300 s over 400 px). Here the graph is drawn only when there is a new measurement, in a cached
-    surface, which is then shifted to the left by one pixel at a time (about every 0.7 s) while the widget is visible.
+    per second (e.g. 300 s over 400 px). Here the curve is drawn only when there is a new measurement, in a cached
+    surface, which is then shifted to the left by a fraction of a pixel (so it is antialiased by cairo and moves
+    smoothly) a few times per second while the widget is visible.
+
+    The graph is shown delayed by one measurement interval: its right edge is the time `now - interval`, so the
+    curve between the last two measurements is always complete, instead of leaving a gap at the right edge that grows
+    until the next measurement arrives.
     """
 
     def __init__(self, timespan: int) -> None:
@@ -37,7 +42,7 @@ class GraphView(Gtk.DrawingArea):
         self._color.parse(GRAPH_COLOR_HEX)
         self._surface: Optional[cairo.Surface] = None
         self._surface_size: Tuple[int, int] = (0, 0)
-        self._reference_time = 0  # Time of the newest sample, the right edge of the cached surface
+        self._reference_time = 0  # Time of the newest sample, that is at the right edge of the cached surface
         self._timer_id = 0
         self.set_hexpand(True)
         self.set_size_request(-1, 80)
@@ -69,8 +74,8 @@ class GraphView(Gtk.DrawingArea):
 
     def _start_timer(self) -> None:
         if not self._timer_id:
-            # The time it takes to scroll the graph by one pixel
-            interval = max(100, int(self._timespan / 1000 / max(self.get_allocated_width(), 1)))
+            # The time it takes to scroll the graph by a quarter of a pixel, that looks the same as a continuous scroll
+            interval = max(50, int(self._timespan / 1000 / max(self.get_allocated_width(), 1) / 4))
             self._timer_id = GLib.timeout_add(interval, self._on_tick)
 
     def _stop_timer(self) -> None:
@@ -91,22 +96,27 @@ class GraphView(Gtk.DrawingArea):
         if self._surface is None or self._surface_size != (width, height):
             self._render_surface(widget, width, height)
         if self._surface is not None:
-            shift = round((self._now() - self._reference_time) / self._timespan * width)
-            cairo_context.set_source_surface(self._surface, -max(shift, 0), 0)
+            # Fractional shifts are interpolated by cairo
+            shift = (self._now() - self._reference_time) / self._timespan * width
+            cairo_context.set_source_surface(self._surface, -max(shift, 0.0), 0)
             cairo_context.paint()
         return False
 
     def _render_surface(self, widget: Gtk.Widget, width: int, height: int) -> None:
         samples = self._samples
         end = samples[-1][0]
-        begin = end - self._timespan
+        # The surface is wider than the widget: its right part is shown while the time until the next measurement passes
+        count = len(samples)
+        delay = max(samples[i][0] - samples[i - 1][0] for i in range(max(1, count - 3), count))
+        begin = end - self._timespan - delay
+        surface_width = int(width * (self._timespan + delay) / self._timespan) + 2
         minimum = samples[-1][3]
         maximum = max(samples[-1][4], max(sample[1] for sample in samples))
         self._surface = None
         if maximum <= minimum:
             return
 
-        surface = widget.get_window().create_similar_surface(cairo.CONTENT_COLOR_ALPHA, width, height)
+        surface = widget.get_window().create_similar_surface(cairo.CONTENT_COLOR_ALPHA, surface_width, height)
         cairo_context = cairo.Context(surface)
         points = [((timestamp - begin) / self._timespan * width,
                    height - (value - minimum) / (maximum - minimum) * height)
