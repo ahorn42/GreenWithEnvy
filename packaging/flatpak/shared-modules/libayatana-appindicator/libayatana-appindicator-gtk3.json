@@ -6,6 +6,7 @@
         "/lib/pkgconfig"
     ],
     "config-opts": [
+        "-DCMAKE_INSTALL_LIBDIR=lib",
         "-DENABLE_BINDINGS_MONO=NO",
         "-DENABLE_BINDINGS_VALA=NO",
         "-DENABLE_GTKDOC=NO"
@@ -43,7 +44,7 @@
                         "https://sources.suse.com/SUSE:SLFO:Main:Build/libdbusmenu/a5b3e4717f09f90f9cd5568a5f933e8d/libdbusmenu-16.04.0.tar.gz",
                         "https://mirror.math.princeton.edu/pub/frugalware/frugalware-2.1/source/xlib/libdbusmenu/libdbusmenu-16.04.0.tar.gz",
                         "https://ftp.fr.openbsd.org/pub/OpenBSD/distfiles/libdbusmenu-16.04.0.tar.gz"
-                     ],
+                    ],
                     "sha256": "b9cc4a2acd74509435892823607d966d424bd9ad5d0b00938f27240a1bfa878a"
                 },
                 {
@@ -62,6 +63,7 @@
                 "/lib/pkgconfig"
             ],
             "config-opts": [
+                "-DCMAKE_INSTALL_LIBDIR=lib",
                 "-DENABLE_INTROSPECTION=OFF"
             ],
             "sources": [
@@ -103,6 +105,9 @@
                         "tag-pattern": "^([\\d.]+)$"
                     }
                 }
+            ],
+            "config-opts": [
+                "-DCMAKE_INSTALL_LIBDIR=lib"
             ]
         }
     ],
