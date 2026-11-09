@@ -72,7 +72,7 @@ sudo apt install build-essential pkg-config python3-dev python3-venv libcairo2-d
 # Run time: the Gtk and libnotify typelibs
 sudo apt install gir1.2-gtk-3.0 gir1.2-notify-0.7
 # Optional: tray icon (GNOME also needs the AppIndicator extension, which is not needed to use GWE)
-sudo apt install gir1.2-appindicator3-0.1
+sudo apt install gir1.2-ayatanaappindicator3-0.1
 ```
 
 | Distro                | Build time                                                                                      | Run time (typelibs)                                                |

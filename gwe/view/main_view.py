@@ -31,8 +31,12 @@ from gwe.model.fan_profile import FanProfile
 try:  # AppIndicator3 may not be installed
     import gi
 
-    gi.require_version('AppIndicator3', '0.1')
-    from gi.repository import AppIndicator3
+    try:  # Ayatana is the maintained fork of AppIndicator (same API), the original one is only the fallback
+        gi.require_version('AyatanaAppIndicator3', '0.1')
+        from gi.repository import AyatanaAppIndicator3 as AppIndicator3
+    except (ImportError, ValueError):
+        gi.require_version('AppIndicator3', '0.1')
+        from gi.repository import AppIndicator3
 except (ImportError, ValueError):
     AppIndicator3 = None
 from gwe.di import MainBuilder
@@ -48,7 +52,7 @@ from gwe.presenter.main_presenter import MainPresenter, MainViewInterface
 _LOG = logging.getLogger(__name__)
 _REFRESH_INTERVALS = (0.5, 1.0, 3.0, 5.0)  # Seconds, the choices of the refresh interval combobox
 if AppIndicator3 is None:
-    _LOG.warning("AppIndicator3 is not installed. The App indicator will not be shown.")
+    _LOG.warning("AyatanaAppIndicator3/AppIndicator3 is not installed. The App indicator will not be shown.")
 
 
 @singleton
