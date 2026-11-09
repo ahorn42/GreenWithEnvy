@@ -1,0 +1,56 @@
+{
+  "app-id": "com.leinardi.gwe",
+  "command": "gwe",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "49",
+  "sdk": "org.gnome.Sdk",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=x11",
+    "--device=dri",
+    "--share=network",
+    "--talk-name=org.kde.StatusNotifierWatcher",
+    "--talk-name=org.freedesktop.Flatpak"
+  ],
+  "cleanup": [
+    "*.la",
+    "*.a",
+    "/include",
+    "/lib/pkgconfig"
+  ],
+  "modules": [
+    "shared-modules/libappindicator/libappindicator-gtk3-introspection-12.10.json",
+    {
+      "name": "python-dependencies",
+      "buildsystem": "simple",
+      "build-options": {
+        "build-args": [
+          "--share=network"
+        ]
+      },
+      "build-commands": [
+        "pip3 install --verbose --exists-action=i --no-cache-dir --prefix=${FLATPAK_DEST} -r requirements-flatpak.txt"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "path": "requirements-flatpak.txt"
+        }
+      ]
+    },
+    {
+      "name": "gwe",
+      "buildsystem": "meson",
+      "config-opts": [
+        "--buildtype=release"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://gitlab.com/leinardi/gwe.git",
+          "branch": "master"
+        }
+      ]
+    }
+  ]
+}

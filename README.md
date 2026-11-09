@@ -216,17 +216,26 @@ Make sure to have the Flathub remote added to the current user:
 flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
-### Clone the repo
-```bash
-git clone --recurse-submodules -j4 https://gitlab.com/leinardi/gwe.git
-```
-It is possible to build the local source or the remote one (the same that Flathub uses)
 ### Local repository
+Builds the committed state (`HEAD`, i.e. the branch that is currently checked out) of this repository. It uses the
+manifest in `packaging/flatpak/`, so neither the `flatpak` submodule nor a clone with `--recurse-submodules` is needed.
+The Python dependencies are downloaded from PyPI while building. Needs `flatpak`, `flatpak-builder` and
+`desktop-file-utils`:
 ```bash
 ./build.sh --flatpak-local --flatpak-install
 ```
-### Remote repository
+The GNOME runtime branch used is the one set in `packaging/flatpak/com.leinardi.gwe.json`; to try another one:
 ```bash
+GWE_FLATPAK_RUNTIME_VERSION=50 ./build.sh --flatpak-local --flatpak-install
+```
+The available branches are listed by `flatpak --user remote-ls flathub --runtime | grep org.gnome.Platform`.
+
+The NVIDIA driver extension (`org.freedesktop.Platform.GL.nvidia-<driver version>`) is not part of GWE: Flatpak picks the
+one that matches the installed driver. If it is missing (all the GPU fields are empty) run `flatpak update`.
+
+### Remote repository (the one Flathub uses, needs the submodule)
+```bash
+git clone --recurse-submodules -j4 https://gitlab.com/leinardi/gwe.git
 ./build.sh --flatpak-remote --flatpak-install
 ```
 ### Run

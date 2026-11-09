@@ -40,6 +40,8 @@ FLATPAK_BUILD_DIR="${BUILD_DIR}/flatpak/build"
 FLATPAK_REPO_DIR="${BUILD_DIR}/flatpak/repo"
 FLATPAK_INSTALL_PARAMETERS="--user --install"
 FLATPAK_REMOTE_MANIFEST="flatpak/${APP_ID}.json"
+# The manifest used for the local builds is part of this repository (it does not need the flatpak submodule)
+FLATPAK_LOCAL_SOURCE_MANIFEST="packaging/flatpak/${APP_ID}.json"
 FLATPAK_LOCAL_MANIFEST="build/flatpak/${APP_ID}.json"
 FLATPAK_OUTPUT_FILE="${OUTPUT_DIR}/${APP_ID}.flatpak"
 INSTALL_DIR="${OUTPUT_DIR}/install"
@@ -121,7 +123,8 @@ if [[ ${#POSITIONAL[@]} -ne 0 ]]; then
 	exit 1
 fi
 
-if [[ ${FLATPAK_REMOTE} -eq 1 || ${FLATPAK_LOCAL} -eq 1 || ${FLATPAK_BUNDLE} -eq 1 ]]; then
+# Release step (it also overwrites CHANGELOG.md): not needed to just build and install GWE locally
+if [[ ${FLATPAK_REMOTE} -eq 1 || ${FLATPAK_BUNDLE} -eq 1 ]]; then
 	prepare_release_files
 fi
 [[ -d ${OUTPUT_DIR} ]] && rm -rfv ${OUTPUT_DIR}
@@ -138,7 +141,7 @@ if [[ ${FLATPAK_REMOTE} -eq 1 ]]; then
 		build_flatpak_bundle
 	fi
 elif [[ ${FLATPAK_LOCAL} -eq 1 ]]; then
-	scripts/make_local_manifest.py ${FLATPAK_REMOTE_MANIFEST} ${FLATPAK_LOCAL_MANIFEST}
+	scripts/make_local_manifest.py ${FLATPAK_LOCAL_SOURCE_MANIFEST} ${FLATPAK_LOCAL_MANIFEST}
 	if [[ ${FLATPAK_INSTALL} -eq 1 ]]; then
 		build_flatpak "${FLATPAK_LOCAL_MANIFEST}" "${FLATPAK_INSTALL_PARAMETERS}"
 	else

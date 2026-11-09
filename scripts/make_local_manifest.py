@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -17,4 +18,7 @@ MODULE['url'] = str(GIT_REPO)
 MODULE['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
 MODULE.pop('branch', None)
 MODULE.pop('tag', None)
+# Allows to try another GNOME runtime branch without editing the manifest, e.g. GWE_FLATPAK_RUNTIME_VERSION=50
+if os.environ.get('GWE_FLATPAK_RUNTIME_VERSION'):
+    MANIFEST['runtime-version'] = os.environ['GWE_FLATPAK_RUNTIME_VERSION']
 json.dump(MANIFEST, open(OUTPUT, 'w', encoding='utf-8'))
